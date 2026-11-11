@@ -41,7 +41,27 @@
           "max_result_bytes": 4096,
           "save_response_body": true,
           "result_variable": "db_result",
-          "row_count_variable": "db_rows"
+          "row_count_variable": "db_rows",
+          "assertions": [
+            {
+              "type": "json",
+              "name": "数据库身份",
+              "path": "$.rows[0][0]",
+              "matcher": {
+                "type": "equals",
+                "expected": "ipds_dev"
+              }
+            },
+            {
+              "type": "json",
+              "name": "绑定参数",
+              "path": "$.rows[0][2]",
+              "matcher": {
+                "type": "equals",
+                "expected": 42
+              }
+            }
+          ]
         },
         {
           "type": "javascript",
@@ -72,7 +92,23 @@
                       "age": 20,
                       "email": "rmeter@example.test"
                     }
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.code",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": 200
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "21岁"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -89,7 +125,23 @@
                       "buyer_account": "rmeter-test",
                       "pay_method": "Alipay"
                     }
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.code",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": 200
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "下单成功"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -106,7 +158,23 @@
                       "buyer_account": "rmeter-test",
                       "pay_method": "UnionPay"
                     }
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.code",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": 400
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "不支持银联支付方式"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -119,7 +187,23 @@
                   },
                   "settings": {
                     "headers": [["Content-Type", "application/xml"]]
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "xml",
+                      "name": "XPath 响应内容",
+                      "xpath": "/information/id/text()",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": "12"
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "XML 正文匹配",
+                      "pattern": "<message>232432</message>"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -136,7 +220,23 @@
                         }
                       ]
                     }
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.matched",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": "jsonpath"
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "jsonpath"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -149,7 +249,23 @@
                   },
                   "settings": {
                     "headers": [["Content-Type", "application/xml"]]
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.matched",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": "xpath"
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "xpath"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -161,13 +277,45 @@
                       ["status", "paid"],
                       ["source", "web"]
                     ]
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.matched",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": "query"
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "query"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
                   "name": "HTTP path",
                   "method": "GET",
-                  "url": "http://127.0.0.1:9080/examples/items/${item_id}"
+                  "url": "http://127.0.0.1:9080/examples/items/${item_id}",
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.id",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": 42
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "path"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -179,7 +327,23 @@
                     "value": {
                       "code": "AB-42"
                     }
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.matched",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": "regex"
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "regex"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -191,7 +355,23 @@
                     "value": {
                       "name": "${visitor}"
                     }
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "JSONPath 业务响应",
+                      "path": "$.message",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": "Hello, rmeter!"
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "正文包含预期内容",
+                      "pattern": "Hello, rmeter!"
+                    }
+                  ]
                 },
                 {
                   "type": "http_request",
@@ -204,7 +384,23 @@
                   },
                   "settings": {
                     "headers": [["Content-Type", "application/xml"]]
-                  }
+                  },
+                  "assertions": [
+                    {
+                      "type": "xml",
+                      "name": "XPath 响应内容",
+                      "xpath": "/greeting/text()",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": "Hello, rmeter!"
+                      }
+                    },
+                    {
+                      "type": "regex",
+                      "name": "XML 正文匹配",
+                      "pattern": "^<greeting>Hello, rmeter!</greeting>$"
+                    }
+                  ]
                 }
               ]
             }
@@ -227,7 +423,18 @@
               "max_result_bytes": 4096,
               "save_response_body": true,
               "result_variable": "step_result",
-              "row_count_variable": "db_rows"
+              "row_count_variable": "db_rows",
+              "assertions": [
+                {
+                  "type": "json",
+                  "name": "返回一行",
+                  "path": "$.row_count",
+                  "matcher": {
+                    "type": "equals",
+                    "expected": 1
+                  }
+                }
+              ]
             },
             {
               "type": "javascript",

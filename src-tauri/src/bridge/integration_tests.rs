@@ -4,6 +4,84 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 #[tokio::test]
+#[ignore = "requires the user-provided Mock Studio on 127.0.0.1:9080"]
+async fn http_default_configuration_scopes() {
+    let source =
+        serde_json::from_str(include_str!("../../../examples/http-defaults-scopes.json")).unwrap();
+    let (status, summary, events) = super::tests::collect(source).await;
+    assert_eq!(status, "completed");
+    assert_eq!(summary.samples, 7, "HTTP defaults must not emit samples");
+    assert_eq!(summary.passed, 7);
+    for preview in events {
+        if let ReportEvent::SampleCompleted {
+            label,
+            response_code,
+            assertions,
+            ..
+        } = preview.event
+        {
+            assert_eq!(response_code.as_deref(), Some("200"), "{label}");
+            assert_eq!(assertions.len(), 1);
+            assert!(assertions[0].success, "HTTP scope failed for {label}");
+        }
+    }
+    println!(
+        "HTTP defaults scopes verified: globals, siblings, descendants, nested override, same-level ordering, sampler and URL priority; 7 samples passed."
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires RMETER_INTEGRATION_DB_PASSWORD for the user-authorized ipds_dev database"]
+async fn jdbc_configuration_scopes() {
+    assert!(
+        std::env::var("RMETER_INTEGRATION_DB_PASSWORD").is_ok(),
+        "database password environment variable is required"
+    );
+    let source = serde_json::from_str(include_str!("../../../examples/jdbc-scopes.json")).unwrap();
+    let (status, summary, events) = super::tests::collect(source).await;
+    assert_eq!(status, "completed");
+    assert_eq!(
+        summary.samples, 8,
+        "configuration nodes must not emit samples"
+    );
+    assert_eq!(summary.passed, 8);
+    let mut scopes = BTreeMap::new();
+    for preview in events {
+        if let ReportEvent::SampleCompleted {
+            label,
+            response_body,
+            assertions,
+            ..
+        } = preview.event
+        {
+            assert_eq!(assertions.len(), 1);
+            assert!(assertions[0].success, "scope assertion failed for {label}");
+            let body: Value = serde_json::from_slice(&response_body.unwrap()).unwrap();
+            scopes.insert(label, body["rows"][0][0].as_str().unwrap().to_owned());
+        }
+    }
+    for (label, scope) in [
+        ("global before", "pg_catalog"),
+        ("global after", "pg_catalog"),
+        ("other group global", "pg_catalog"),
+        ("inner override", "pg_temp"),
+        ("group before config", "public"),
+        ("group descendant", "public"),
+        ("group after", "public"),
+        ("nested override", "pg_temp"),
+    ] {
+        assert_eq!(
+            scopes.get(label).map(String::as_str),
+            Some(scope),
+            "{label}"
+        );
+    }
+    println!(
+        "JDBC scopes verified: global, group, nested override, order independence and no sibling/group leakage; 8 read-only samples passed."
+    );
+}
+
+#[tokio::test]
 #[ignore = "requires Mock Studio on :9080 and RMETER_INTEGRATION_DB_PASSWORD for ipds_dev"]
 async fn mock_jdbc_all_components() {
     let password = std::env::var("RMETER_INTEGRATION_DB_PASSWORD")
@@ -91,6 +169,20 @@ async fn mock_jdbc_all_components() {
     assert_eq!(terminal.summary.samples, 56);
     assert_eq!(terminal.summary.passed, 56);
     assert_eq!(terminal.summary.failed, 0);
+    let assertion_results: Vec<_> = events
+        .iter()
+        .flat_map(|preview| match &preview.event {
+            ReportEvent::SampleCompleted { assertions, .. } => {
+                assertions.iter().collect::<Vec<_>>()
+            }
+            _ => vec![],
+        })
+        .collect();
+    assert_eq!(assertion_results.len(), 96);
+    assert!(
+        assertion_results.iter().all(|assertion| assertion.success),
+        "all JSONPath, XPath and regex assertions must pass"
+    );
 
     let mut per_user: BTreeMap<usize, BTreeMap<String, Vec<Value>>> = BTreeMap::new();
     for preview in events {
@@ -177,6 +269,6 @@ async fn mock_jdbc_all_components() {
         assert_eq!(samples.values().map(Vec::len).sum::<usize>(), 28);
     }
     println!(
-        "All eight components passed: 2 users; 44 HTTP, 6 JDBC, 6 JavaScript samples; all 11 mock rules verified."
+        "All eight components passed: 2 users; 44 HTTP, 6 JDBC, 6 JavaScript samples; all 11 mock rules verified; 96 native assertions passed."
     );
 }

@@ -40,10 +40,9 @@ const tests = Bun.spawn(
     "src-tauri/Cargo.toml",
     "--locked",
     "--lib",
-    "bridge::integration_tests::mock_jdbc_all_components",
+    "bridge::integration_tests::",
     "--",
     "--ignored",
-    "--exact",
     "--nocapture",
   ],
   {

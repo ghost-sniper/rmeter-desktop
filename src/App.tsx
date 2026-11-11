@@ -936,6 +936,7 @@ export default function App() {
                     <th>线程组</th>
                     <th>耗时</th>
                     <th>返回码</th>
+                    <th>断言</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -956,6 +957,17 @@ export default function App() {
                       <td>{row.sample.group_name}</td>
                       <td>{row.sample.elapsed_ms.toFixed(2)} ms</td>
                       <td>{row.sample.response_code ?? "—"}</td>
+                      <td
+                        className={
+                          row.sample.assertions?.some((a) => !a.success)
+                            ? "failed"
+                            : ""
+                        }
+                      >
+                        {row.sample.assertions?.length
+                          ? `${row.sample.assertions.filter((a) => a.success).length}/${row.sample.assertions.length} 通过`
+                          : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -985,6 +997,32 @@ export default function App() {
                   {selectedRow.sample.response_message && (
                     <pre>{selectedRow.sample.response_message}</pre>
                   )}
+                  <section className="assertion-results" aria-label="断言结果">
+                    <h4>断言结果</h4>
+                    {selectedRow.sample.assertions?.length ? (
+                      <ul>
+                        {selectedRow.sample.assertions.map(
+                          (assertion, index) => (
+                            <li key={index}>
+                              <strong
+                                className={
+                                  assertion.success ? "passed" : "failed"
+                                }
+                              >
+                                {assertion.success ? "✓ 通过" : "× 失败"} ·{" "}
+                                {assertion.name}
+                              </strong>
+                              {assertion.message && (
+                                <pre>{assertion.message}</pre>
+                              )}
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    ) : (
+                      <p>此采样没有断言结果</p>
+                    )}
+                  </section>
                   {selectedRow.truncated && (
                     <p className="error-text">
                       响应预览已截断或因缓存上限释放。

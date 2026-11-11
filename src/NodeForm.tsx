@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { AssertionKind, assertionLabels, newAssertion } from "./assertions";
 import {
   EditorNode,
   Json,
@@ -26,6 +27,7 @@ type Field = {
   label: string;
   type?: "number" | "text" | "password" | "code" | "json" | "boolean" | "count";
   hint?: string;
+  placeholder?: string;
   options?: [string, string][];
   required?: boolean;
   nullable?: boolean;
@@ -331,11 +333,12 @@ function InputField({ field, ...props }: Props & { field: Field }) {
             autoComplete="off"
             value={shown}
             placeholder={
-              field.type === "count"
+              field.placeholder ??
+              (field.type === "count"
                 ? "1 或 infinite"
                 : field.nullable
                   ? "默认；null 为禁用/无限"
-                  : "未设置"
+                  : "未设置")
             }
             onChange={(e) => accept(e.target.value)}
           />
@@ -472,6 +475,228 @@ function Pairs({
   );
 }
 
+function AssertionsForm(props: Props) {
+  const { node, onChange, drafts, setDraft } = props;
+  const assertions = (
+    Array.isArray(node.data.assertions) ? node.data.assertions : []
+  ) as ObjectValue[];
+  const prefix = `${node.id}:assertions:`;
+  const save = (next: ObjectValue[]) =>
+    onChange({ ...node.data, assertions: next });
+  // Drafts belong to the assertion, including when it is reordered or removed.
+  const reorder = (order: number[]) => {
+    const retained: [string, Draft][] = [];
+    for (const [key, draft] of Object.entries(drafts)) {
+      if (!key.startsWith(prefix)) continue;
+      const suffix = key.slice(prefix.length),
+        separator = suffix.indexOf(":");
+      const oldIndex = Number(suffix.slice(0, separator)),
+        newIndex = order.indexOf(oldIndex);
+      setDraft(key);
+      if (newIndex >= 0)
+        retained.push([
+          `${prefix}${newIndex}${suffix.slice(separator)}`,
+          draft,
+        ]);
+    }
+    retained.forEach(([key, draft]) => setDraft(key, draft));
+    save(order.map((index) => assertions[index]));
+  };
+  return (
+    <section
+      className="form-section assertion-editor"
+      aria-label="响应断言配置"
+    >
+      <h3>响应断言</h3>
+      <p className="field-hint">
+        按顺序验证每项断言；任一断言失败会使采样失败，并触发线程组的错误策略。表达式与期望值按字面配置，不展开变量。
+      </p>
+      {node.kind === "http_request" && (
+        <InputField
+          {...props}
+          field={{
+            path: "max_assertion_body_bytes",
+            label: "断言响应体上限（bytes）",
+            placeholder: "默认；null 使用引擎默认值",
+            type: "number",
+            nullable: true,
+            hint: "缺省或 null 使用引擎默认值；超限由引擎报告断言失败，独立于响应预览上限。",
+          }}
+        />
+      )}
+      {assertions.map((assertion, index) => {
+        const type = (assertion.type ?? "json") as AssertionKind;
+        const itemProps: Props = {
+          ...props,
+          node: { ...node, id: `${prefix}${index}`, data: assertion },
+          onChange: (data) =>
+            save(assertions.map((item, i) => (i === index ? data : item))),
+        };
+        const field = (field: Field) => (
+          <InputField key={field.path} {...itemProps} field={field} />
+        );
+        const matcher = object(assertion.matcher) ? assertion.matcher : {};
+        const move = (delta: number) => {
+          const order = assertions.map((_, i) => i);
+          [order[index], order[index + delta]] = [
+            order[index + delta],
+            order[index],
+          ];
+          reorder(order);
+        };
+        return (
+          <section
+            className="assertion-card"
+            key={index}
+            aria-label={`断言 ${index + 1}`}
+          >
+            <div className="section-line">
+              <h4>
+                {index + 1}. {assertionLabels[type]}
+              </h4>
+              <div>
+                <button
+                  type="button"
+                  disabled={index === 0}
+                  aria-label={`上移断言 ${index + 1}`}
+                  onClick={() => move(-1)}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  disabled={index === assertions.length - 1}
+                  aria-label={`下移断言 ${index + 1}`}
+                  onClick={() => move(1)}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  aria-label={`删除断言 ${index + 1}`}
+                  onClick={() =>
+                    reorder(
+                      assertions.map((_, i) => i).filter((i) => i !== index),
+                    )
+                  }
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+            <div className="form-grid">
+              {field({ path: "name", label: "断言名称", required: true })}
+              {type === "regex" ? (
+                <>
+                  {field({
+                    path: "pattern",
+                    label: "正文正则表达式",
+                    required: true,
+                    hint: "Rust regex 语法；默认搜索匹配，可用 ^…$ 匹配全文。",
+                  })}
+                  {field({
+                    path: "invert",
+                    label: "反向匹配（不应匹配）",
+                    type: "boolean",
+                  })}
+                </>
+              ) : (
+                <>
+                  {field({
+                    path: type === "json" ? "path" : "xpath",
+                    label: type === "json" ? "JSONPath" : "XPath",
+                    required: true,
+                  })}
+                  <div className="field">
+                    <label htmlFor={`${itemProps.node.id}-matcher`}>
+                      匹配方式
+                    </label>
+                    <select
+                      id={`${itemProps.node.id}-matcher`}
+                      value={String(matcher.type ?? "")}
+                      onChange={(e) => {
+                        for (const key of Object.keys(drafts))
+                          if (key.startsWith(`${itemProps.node.id}:matcher.`))
+                            setDraft(key);
+                        const type = e.target.value;
+                        itemProps.onChange({
+                          ...assertion,
+                          matcher:
+                            type === "equals"
+                              ? {
+                                  type,
+                                  expected:
+                                    assertion.type === "xml" ? "" : null,
+                                }
+                              : type === "regex"
+                                ? { type, pattern: ".*" }
+                                : { type },
+                        });
+                      }}
+                    >
+                      <option value="equals">等于</option>
+                      <option value="regex">正则匹配</option>
+                      <option value="exists">存在</option>
+                      <option value="not_exists">不存在</option>
+                    </select>
+                  </div>
+                  {field({
+                    path: "selection",
+                    label: "匹配节点范围",
+                    options: [
+                      ["one", "恰好一个节点"],
+                      ["any", "任一节点匹配"],
+                      ["all", "全部节点匹配"],
+                    ],
+                    hint: "缺省为恰好一个；全部要求非空。存在 / 不存在判断不使用此选项。",
+                  })}
+                  {matcher.type === "equals" &&
+                    field({
+                      path: "matcher.expected",
+                      label:
+                        type === "json" ? "期望值（JSON）" : "期望值（文本）",
+                      type: type === "json" ? "json" : "text",
+                      required: true,
+                      hint:
+                        type === "json"
+                          ? '保留 JSON 类型，例如 200、"200"、null、对象或数组。'
+                          : "按 XPath 字符串值比较，不自动去除空白。",
+                    })}
+                  {matcher.type === "regex" &&
+                    field({
+                      path: "matcher.pattern",
+                      label: "值正则表达式",
+                      required: true,
+                    })}
+                  {type === "xml" &&
+                    field({
+                      path: "namespaces",
+                      label: "命名空间（JSON 映射）",
+                      type: "json",
+                      hint: '例如 {"o":"urn:orders"}，XPath 中使用 /o:order。',
+                    })}
+                </>
+              )}
+            </div>
+          </section>
+        );
+      })}
+      {!assertions.length && <p className="empty-line">尚未配置响应断言</p>}
+      <div className="assertion-actions">
+        {(["json", "xml", "regex"] as const).map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => save([...assertions, newAssertion(type)])}
+          >
+            ＋ 添加{assertionLabels[type]}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function NodeForm(props: Props) {
   const { node, disabled, onChange } = props;
   const render = (field: Field) => (
@@ -492,6 +717,7 @@ export default function NodeForm(props: Props) {
         <h3>基本信息</h3>
         <div className="form-grid">
           {node.kind !== "loop" &&
+            node.kind !== "http_defaults" &&
             render({ path: "name", label: "名称", required: true })}
           <div className="field">
             <label>组件类型</label>
@@ -499,87 +725,109 @@ export default function NodeForm(props: Props) {
           </div>
         </div>
       </div>
-      <div className="form-section">
-        <h3>{node.kind === "plan" ? "测试计划配置" : "组件配置"}</h3>
-        <div className="form-grid">
-          {(specificFields[node.kind] ?? []).map(render)}
-          {node.kind === "plan" && (
-            <Pairs {...props} path="variables" label="用户变量" variables />
+      {node.kind !== "http_defaults" && (
+        <div className="form-section">
+          <h3>{node.kind === "plan" ? "测试计划配置" : "组件配置"}</h3>
+          {node.kind === "jdbc_connection_configuration" && (
+            <p className="field-hint">
+              配置可放在测试计划、线程组或控制器下，供所在作用域及其后代的 JDBC
+              采样器按“连接变量名”引用。
+              配置顺序不影响引用；子作用域的同名配置覆盖外层，同层不允许重名。
+            </p>
           )}
-          {(node.kind === "if" || node.kind === "while") && (
-            <>
-              <div className="field">
-                <label htmlFor="condition-mode">条件类型</label>
-                <select
-                  id="condition-mode"
-                  value={conditionMode}
-                  onChange={(e) => {
-                    props.setDraft(`${node.id}:condition`);
-                    onChange(
-                      setValue(
-                        node.data,
-                        "condition",
-                        e.target.value === "boolean"
-                          ? true
-                          : e.target.value === "json"
-                            ? { type: "variable_bool", name: "enabled" }
-                            : "${enabled}",
-                      ),
-                    );
-                  }}
-                >
-                  <option value="text">变量表达式</option>
-                  <option value="boolean">布尔值</option>
-                  <option value="json">结构化 JSON 条件</option>
-                </select>
-              </div>
-              {render({
-                path: "condition",
-                label: "条件",
-                type:
-                  conditionMode === "boolean"
-                    ? "boolean"
-                    : conditionMode === "json"
-                      ? "json"
-                      : "text",
-                required: true,
-                hint:
-                  node.kind === "if"
-                    ? "IF：表达式展开为 true 时执行，不执行 JavaScript / JMeter 函数。"
-                    : "While：空值或 LAST 使用库的采样状态语义；其他表达式展开为 false 时退出。",
-              })}
-            </>
-          )}
-          {node.kind === "http_request" && (
-            <>
-              {render({
-                path: "method",
-                label: "请求方法",
-                options: [
-                  "GET",
-                  "POST",
-                  "PUT",
-                  "PATCH",
-                  "DELETE",
-                  "HEAD",
-                  "OPTIONS",
-                  "TRACE",
-                  "CONNECT",
-                ].map((x) => [x, x]),
-              })}
-              {render({
-                path: "url",
-                label: "完整 URL",
-                hint: "设置后使用完整 URL；留空时使用下方分项地址",
-              })}
-            </>
-          )}
+          <div className="form-grid">
+            {(specificFields[node.kind] ?? []).map(render)}
+            {node.kind === "plan" && (
+              <Pairs {...props} path="variables" label="用户变量" variables />
+            )}
+            {(node.kind === "if" || node.kind === "while") && (
+              <>
+                <div className="field">
+                  <label htmlFor="condition-mode">条件类型</label>
+                  <select
+                    id="condition-mode"
+                    value={conditionMode}
+                    onChange={(e) => {
+                      props.setDraft(`${node.id}:condition`);
+                      onChange(
+                        setValue(
+                          node.data,
+                          "condition",
+                          e.target.value === "boolean"
+                            ? true
+                            : e.target.value === "json"
+                              ? { type: "variable_bool", name: "enabled" }
+                              : "${enabled}",
+                        ),
+                      );
+                    }}
+                  >
+                    <option value="text">变量表达式</option>
+                    <option value="boolean">布尔值</option>
+                    <option value="json">结构化 JSON 条件</option>
+                  </select>
+                </div>
+                {render({
+                  path: "condition",
+                  label: "条件",
+                  type:
+                    conditionMode === "boolean"
+                      ? "boolean"
+                      : conditionMode === "json"
+                        ? "json"
+                        : "text",
+                  required: true,
+                  hint:
+                    node.kind === "if"
+                      ? "IF：表达式展开为 true 时执行，不执行 JavaScript / JMeter 函数。"
+                      : "While：空值或 LAST 使用库的采样状态语义；其他表达式展开为 false 时退出。",
+                })}
+              </>
+            )}
+            {node.kind === "http_request" && (
+              <>
+                {render({
+                  path: "method",
+                  label: "请求方法",
+                  options: [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE",
+                    "HEAD",
+                    "OPTIONS",
+                    "TRACE",
+                    "CONNECT",
+                  ].map((x) => [x, x]),
+                })}
+                {render({
+                  path: "url",
+                  label: "完整 URL",
+                  hint: "完整 URL 优先于默认配置中的地址；留空时使用当前作用域继承的协议、主机、端口与路径，并允许下方分项覆盖。",
+                })}
+              </>
+            )}
+          </div>
         </div>
-      </div>
-      {(node.kind === "plan" || node.kind === "http_request") && (
-        <details className="form-section" open={node.kind === "http_request"}>
+      )}
+      {node.kind === "http_defaults" && (
+        <p className="form-section field-hint">
+          作用于所在层级及后代的 HTTP 采样器，不受配置节点放置在采样器前后影响。
+          同层多个默认配置按树顺序合并，后者覆盖前者；内层配置与采样器显式设置优先。
+          此组件不发送请求，也不产生采样结果。
+        </p>
+      )}
+      {(node.kind === "plan" ||
+        node.kind === "http_request" ||
+        node.kind === "http_defaults") && (
+        <details className="form-section" open={node.kind !== "plan"}>
           <summary>
-            {node.kind === "plan" ? "HTTP 默认配置" : "地址与请求设置"}
+            {node.kind === "plan"
+              ? "全局 HTTP 默认配置"
+              : node.kind === "http_defaults"
+                ? "HTTP 默认配置"
+                : "地址与请求设置"}
           </summary>
           <div className="form-grid">
             {httpFields.map((f) =>
@@ -643,6 +891,9 @@ export default function NodeForm(props: Props) {
             )}
           </div>
         </div>
+      )}
+      {(node.kind === "http_request" || node.kind === "jdbc_request") && (
+        <AssertionsForm {...props} />
       )}
     </fieldset>
   );

@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "name": "HTTP 默认配置作用域验证",
+  "defaults": {
+    "protocol": "http",
+    "host": "127.0.0.1",
+    "port": 9080,
+    "path": "/examples/query",
+    "query": [
+      ["status", "paid"],
+      ["source", "web"]
+    ],
+    "request_timeout_ms": 5000,
+    "use_system_proxy": false,
+    "save_response_body": true
+  },
+  "groups": [
+    {
+      "name": "组内默认配置",
+      "users": 1,
+      "iterations": 1,
+      "children": [
+        {
+          "type": "http_request",
+          "name": "同层前置采样",
+          "assertions": [
+            {
+              "type": "json",
+              "name": "配置作用域",
+              "path": "$.id",
+              "matcher": {
+                "type": "equals",
+                "expected": 42
+              }
+            }
+          ]
+        },
+        {
+          "type": "if",
+          "name": "后代继承",
+          "condition": true,
+          "children": [
+            {
+              "type": "http_request",
+              "name": "后代采样",
+              "assertions": [
+                {
+                  "type": "json",
+                  "name": "配置作用域",
+                  "path": "$.matched",
+                  "matcher": {
+                    "type": "equals",
+                    "expected": "path"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "loop",
+          "count": 1,
+          "children": [
+            {
+              "type": "http_request",
+              "name": "内层覆盖",
+              "assertions": [
+                {
+                  "type": "json",
+                  "name": "配置作用域",
+                  "path": "$.matched",
+                  "matcher": {
+                    "type": "equals",
+                    "expected": "query"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "http_defaults",
+              "settings": {
+                "path": "/examples/query",
+                "query": [
+                  ["status", "paid"],
+                  ["source", "web"]
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "http_request",
+          "name": "离开内层恢复",
+          "assertions": [
+            {
+              "type": "json",
+              "name": "配置作用域",
+              "path": "$.id",
+              "matcher": {
+                "type": "equals",
+                "expected": 42
+              }
+            }
+          ]
+        },
+        {
+          "type": "http_request",
+          "name": "采样器分项优先",
+          "settings": {
+            "path": "/examples/query",
+            "query": [
+              ["status", "paid"],
+              ["source", "web"]
+            ]
+          },
+          "assertions": [
+            {
+              "type": "json",
+              "name": "配置作用域",
+              "path": "$.matched",
+              "matcher": {
+                "type": "equals",
+                "expected": "query"
+              }
+            }
+          ]
+        },
+        {
+          "type": "http_request",
+          "name": "完整 URL 优先",
+          "url": "http://127.0.0.1:9080/examples/query?status=paid&source=web",
+          "assertions": [
+            {
+              "type": "json",
+              "name": "配置作用域",
+              "path": "$.matched",
+              "matcher": {
+                "type": "equals",
+                "expected": "query"
+              }
+            }
+          ]
+        },
+        {
+          "type": "http_defaults",
+          "settings": {
+            "path": "/not-used"
+          }
+        },
+        {
+          "type": "http_defaults",
+          "settings": {
+            "path": "/examples/items/42",
+            "query": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "全局继承且组间隔离",
+      "users": 1,
+      "iterations": 1,
+      "children": [
+        {
+          "type": "http_request",
+          "name": "全局默认配置",
+          "assertions": [
+            {
+              "type": "json",
+              "name": "配置作用域",
+              "path": "$.matched",
+              "matcher": {
+                "type": "equals",
+                "expected": "query"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

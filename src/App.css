@@ -887,3 +887,42 @@ h1 {
     padding-top: 18px;
   }
 }
+.assertion-card {
+  border: 1px solid #dce4ec;
+  border-radius: 6px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.assertion-card h4 {
+  margin: 0;
+  font-size: 13px;
+}
+.assertion-card .section-line {
+  margin-bottom: 14px;
+}
+.assertion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.assertion-editor .field-hint {
+  color: #657588;
+  line-height: 1.6;
+}
+.assertion-results {
+  border-top: 1px solid #e2e8f0;
+  margin-top: 12px;
+  padding-top: 10px;
+}
+.assertion-results h4 {
+  margin: 0 0 8px;
+}
+.assertion-results ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.assertion-results li {
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+}

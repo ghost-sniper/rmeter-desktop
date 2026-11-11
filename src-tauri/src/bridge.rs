@@ -336,7 +336,7 @@ mod tests {
     fn request(url: &str) -> Value {
         json!({"type":"http_request","name":"HTTP","url":url,"settings":{"use_system_proxy":false,"save_response_body":true}})
     }
-    async fn collect(source: Value) -> (String, RunSummary, Vec<Preview>) {
+    pub(super) async fn collect(source: Value) -> (String, RunSummary, Vec<Preview>) {
         let (_stop, mut cancel) = watch::channel(false);
         let mut summary = RunSummary::default();
         let mut pending = Vec::new();
@@ -370,6 +370,31 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "second");
         assert!(atomic_write(&dir.path().join("missing/plan.json"), "bad").is_err());
         assert_eq!(std::fs::read_to_string(path).unwrap(), "second");
+    }
+    #[tokio::test]
+    async fn jdbc_same_scope_duplicates_are_rejected_but_nested_overrides_are_valid() {
+        let connection = json!({"type":"jdbc_connection_configuration", "name":"pool", "variable_name":"db", "url":"postgresql://127.0.0.1/test"});
+        let source = plan(json!([connection.clone(), connection.clone()]));
+        assert!(
+            validate_script(source.to_string())
+                .await
+                .unwrap_err()
+                .contains("duplicate JDBC connection")
+        );
+        let mut global = connection.clone();
+        global.as_object_mut().unwrap().remove("type");
+        let mut source = plan(json!([]));
+        source["jdbc_connections"] = json!([global.clone(), global.clone()]);
+        assert!(
+            validate_script(source.to_string())
+                .await
+                .unwrap_err()
+                .contains("duplicate JDBC connection")
+        );
+        source["jdbc_connections"] = json!([global]);
+        source["groups"][0]["children"] =
+            json!([connection.clone(), {"type":"loop","count":1,"children":[connection]}]);
+        validate_script(source.to_string()).await.unwrap();
     }
     #[tokio::test]
     async fn manager_rejects_duplicate_and_ignores_stale_stop() {
@@ -509,6 +534,198 @@ mod tests {
         let (_, summary, _) = collect(script).await;
         assert_eq!(summary.samples, 1);
         assert_eq!(summary.failed, 1);
+    }
+    #[tokio::test]
+    async fn http_defaults_apply_to_siblings_and_descendants_without_scope_leaks() {
+        let global = http_fixture(200, b"global".to_vec()).await;
+        let group = http_fixture(200, b"group".to_vec()).await;
+        let inner = http_fixture(200, b"inner".to_vec()).await;
+        let explicit = http_fixture(200, b"explicit".to_vec()).await;
+        let port = |server: &HttpFixture| {
+            server
+                .url
+                .strip_prefix("http://127.0.0.1:")
+                .unwrap()
+                .split('/')
+                .next()
+                .unwrap()
+                .parse::<u16>()
+                .unwrap()
+        };
+        let sample = |name: &str| json!({"type":"http_request","name":name});
+        let config =
+            |server: &HttpFixture| json!({"type":"http_defaults","settings":{"port":port(server)}});
+        let mut source = plan(json!([
+            sample("before"),
+            {"type":"if","name":"inherit","condition":true,"children":[sample("descendant")]},
+            {"type":"loop","count":1,"children":[sample("inner"), config(&inner)]},
+            sample("after"),
+            {"type":"http_request","name":"settings override","settings":{"port":port(&explicit)}},
+            {"type":"http_request","name":"URL override","url":explicit.url},
+            config(&global), config(&group)
+        ]));
+        source["defaults"] = json!({"protocol":"http","host":"127.0.0.1","port":port(&global),"path":"/test","save_response_body":true,"use_system_proxy":false});
+        source["groups"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"name":"other group","children":[sample("global")]}));
+        let (_, summary, events) = collect(source).await;
+        assert_eq!(summary.samples, 7);
+        assert_eq!(summary.passed, 7);
+        let mut actual = std::collections::BTreeMap::new();
+        for preview in events {
+            if let ReportEvent::SampleCompleted {
+                label,
+                response_body,
+                ..
+            } = preview.event
+            {
+                actual.insert(label, String::from_utf8(response_body.unwrap()).unwrap());
+            }
+        }
+        for (label, body) in [
+            ("before", "group"),
+            ("descendant", "group"),
+            ("inner", "inner"),
+            ("after", "group"),
+            ("settings override", "explicit"),
+            ("URL override", "explicit"),
+            ("global", "global"),
+        ] {
+            assert_eq!(actual.get(label).map(String::as_str), Some(body), "{label}");
+        }
+        assert_eq!(global.requests.load(Ordering::Relaxed), 1);
+        assert_eq!(group.requests.load(Ordering::Relaxed), 3);
+        assert_eq!(inner.requests.load(Ordering::Relaxed), 1);
+        assert_eq!(explicit.requests.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn http_sampler_children_are_rejected_by_native_format() {
+        let mut sampler = request("http://127.0.0.1:1/never-called");
+        sampler["children"] = json!([{"type":"http_defaults","settings":{"host":"127.0.0.1"}}]);
+        assert!(
+            validate_script(plan(json!([sampler])).to_string())
+                .await
+                .is_err()
+        );
+    }
+    #[tokio::test]
+    async fn response_assertions_are_evaluated_by_core_and_forwarded_in_order() {
+        let json_server = http_fixture(
+            200,
+            br#"{"code":200,"value":null,"items":["ready","ready"]}"#.to_vec(),
+        )
+        .await;
+        let xml_server = http_fixture(
+            200,
+            br#"<o:order xmlns:o="urn:orders"><o:status>paid</o:status></o:order>"#.to_vec(),
+        )
+        .await;
+        let mut json_request = request(&json_server.url);
+        json_request["settings"]["save_response_body"] = json!(false);
+        json_request["assertions"] = json!([
+            {"type":"json","name":"typed equality","path":"$.code","matcher":{"type":"equals","expected":200}},
+            {"name":"legacy null","path":"$.value","matcher":{"type":"equals","expected":null}},
+            {"type":"json","name":"all","path":"$.items[*]","selection":"all","matcher":{"type":"regex","pattern":"^ready$"}},
+            {"type":"json","name":"any","path":"$.items[*]","selection":"any","matcher":{"type":"equals","expected":"ready"}},
+            {"type":"json","name":"missing","path":"$.missing","matcher":{"type":"not_exists"}},
+            {"type":"regex","name":"no errors","pattern":"ERROR","invert":true}
+        ]);
+        let mut xml_request = request(&xml_server.url);
+        xml_request["assertions"] = json!([
+            {"type":"xml","name":"namespaced XPath","xpath":"/o:order/o:status/text()","namespaces":{"o":"urn:orders"},"matcher":{"type":"equals","expected":"paid"}},
+            {"type":"xml","name":"exists","xpath":"/*","matcher":{"type":"exists"}},
+            {"type":"xml","name":"XPath regex","xpath":"string(/*)","matcher":{"type":"regex","pattern":"^paid$"}},
+            {"type":"regex","name":"XML body regex","pattern":"<o:status>paid</o:status>"}
+        ]);
+        let (_, summary, events) =
+            collect(plan(json!([json_request.clone(), xml_request.clone()]))).await;
+        assert_eq!(summary.passed, 2);
+        let samples: Vec<_> = events
+            .iter()
+            .filter_map(|p| match &p.event {
+                ReportEvent::SampleCompleted {
+                    assertions,
+                    response_body,
+                    ..
+                } => Some((assertions, response_body)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            samples[0]
+                .0
+                .iter()
+                .map(|a| a.name.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "typed equality",
+                "legacy null",
+                "all",
+                "any",
+                "missing",
+                "no errors"
+            ]
+        );
+        assert!(
+            samples[0].1.is_none(),
+            "assertions must work without saving response previews"
+        );
+        assert_eq!(samples[1].0.len(), 4);
+        assert!(
+            samples
+                .iter()
+                .flat_map(|(a, _)| a.iter())
+                .all(|a| a.success)
+        );
+
+        json_request["assertions"][0]["matcher"]["expected"] = json!("200");
+        json_request["assertions"][5]["pattern"] = json!("ready");
+        xml_request["assertions"][0]["matcher"]["expected"] = json!("unpaid");
+        let (_, summary, events) = collect(plan(json!([json_request.clone(), xml_request]))).await;
+        assert_eq!(summary.failed, 2);
+        let failures: Vec<_> = events
+            .iter()
+            .flat_map(|p| match &p.event {
+                ReportEvent::SampleCompleted { assertions, .. } => {
+                    assertions.iter().filter(|a| !a.success).collect::<Vec<_>>()
+                }
+                _ => vec![],
+            })
+            .collect();
+        assert_eq!(failures.len(), 3);
+        assert!(
+            failures
+                .iter()
+                .all(|a| a.message.as_ref().is_some_and(|m| !m.is_empty()))
+        );
+        let mut stop_plan = plan(json!([json_request, request(&json_server.url)]));
+        stop_plan["groups"][0]["on_error"] = json!("stop_user");
+        let (_, summary, _) = collect(stop_plan).await;
+        assert_eq!(
+            summary.samples, 1,
+            "assertion failure must trigger the engine error policy"
+        );
+        assert_eq!(summary.failed, 1);
+    }
+
+    #[tokio::test]
+    async fn invalid_assertion_expressions_fail_validation_before_running() {
+        for assertion in [
+            json!({"type":"json","name":"bad path","path":"$[","matcher":{"type":"exists"}}),
+            json!({"type":"xml","name":"bad XPath","xpath":"//*[","matcher":{"type":"exists"}}),
+            json!({"type":"xml","name":"missing namespace","xpath":"/o:order","matcher":{"type":"exists"}}),
+            json!({"type":"regex","name":"bad regex","pattern":"["}),
+        ] {
+            let mut sampler = request("http://127.0.0.1:1/never-called");
+            sampler["assertions"] = json!([assertion]);
+            assert!(
+                validate_script(plan(json!([sampler])).to_string())
+                    .await
+                    .is_err()
+            );
+        }
     }
     #[tokio::test]
     async fn cancellation_stops_infinite_loop_and_allows_future_runs() {

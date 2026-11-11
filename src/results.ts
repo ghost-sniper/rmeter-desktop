@@ -4,6 +4,11 @@ export interface Summary {
   failed: number;
   finished: boolean;
 }
+export interface AssertionResult {
+  name: string;
+  success: boolean;
+  message: string | null;
+}
 export interface Sample {
   type: "sample_completed";
   group_name: string;
@@ -18,6 +23,7 @@ export interface Sample {
   bytes_sent: number;
   bytes_received: number;
   response_body: number[] | null;
+  assertions: AssertionResult[];
 }
 export type ReportEvent =
   Sample | { type: "started" | "finished"; at_ms: number };

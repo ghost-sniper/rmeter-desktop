@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import allComponents from "../examples/mock-jdbc-all-components.json";
+import jdbcScopes from "../examples/jdbc-scopes.json";
+import httpScopes from "../examples/http-defaults-scopes.json";
 import {
   allowed,
   cloneNode,
@@ -15,6 +17,37 @@ import {
 } from "./model";
 
 describe("native script model", () => {
+  it("round trips standalone HTTP defaults without inventing sampler children", () => {
+    const document = parseDocument(JSON.stringify(httpScopes));
+    expect(document.issues).toEqual([]);
+    expect(JSON.parse(stringify(document.root))).toEqual(httpScopes);
+    const config = createNode("http_defaults");
+    expect(config.data).toEqual({ type: "http_defaults", settings: {} });
+    for (const kind of ["group", "loop", "if", "while"] as const)
+      expect(allowed(kind, "http_defaults")).toBe(true);
+    expect(allowed("http_request", "http_defaults")).toBe(false);
+    expect(allowed("plan", "http_defaults")).toBe(false);
+    expect(createNode("http_request").data).not.toHaveProperty("url");
+    const source = structuredClone(httpScopes);
+    Object.assign(source.groups[0].children[0], { children: [config.data] });
+    expect(parseDocument(JSON.stringify(source)).issues.join()).toContain(
+      "children",
+    );
+  });
+  it("round trips JDBC scopes and accepts configurations only in supported parents", () => {
+    const document = parseDocument(JSON.stringify(jdbcScopes));
+    expect(document.issues).toEqual([]);
+    expect(JSON.parse(stringify(document.root))).toEqual(jdbcScopes);
+    for (const parent of ["plan", "group", "loop", "if", "while"] as const)
+      expect(allowed(parent, "jdbc_connection_configuration")).toBe(true);
+    for (const parent of [
+      "http_request",
+      "jdbc_request",
+      "javascript",
+      "jdbc_connection_configuration",
+    ] as const)
+      expect(allowed(parent, "jdbc_connection_configuration")).toBe(false);
+  });
   it("opens and losslessly saves the real mock/JDBC acceptance script with all eight components", () => {
     const document = parseDocument(JSON.stringify(allComponents));
     expect(document.issues).toEqual([]);
@@ -125,7 +158,7 @@ describe("native script model", () => {
       settings: { connect_timeout_ms: null },
     });
   });
-  it.each(["http_defaults", "sequence", "controller", "other"])(
+  it.each(["sequence", "controller", "other"])(
     "opens unsupported %s read-only",
     (type) => {
       const source = JSON.stringify({
@@ -138,7 +171,7 @@ describe("native script model", () => {
       expect(doc.source).toBe(source);
     },
   );
-  it("protects nonempty assertions and post processors, allows empty arrays", () => {
+  it("protects unsupported assertions and post processors, allows empty arrays", () => {
     const make = (assertions: unknown[], post_processors: unknown[]) =>
       parseDocument(
         JSON.stringify({
@@ -164,6 +197,78 @@ describe("native script model", () => {
     expect(make([], [{ type: "javascript" }]).issues.join()).toContain(
       "post_processors",
     );
+  });
+  it("round trips all supported assertions, legacy JSON and null expectations", () => {
+    const assertions = [
+      {
+        type: "json",
+        name: "null",
+        path: "$.value",
+        matcher: { type: "equals", expected: null },
+      },
+      {
+        name: "legacy",
+        path: "$.items[*]",
+        selection: "any",
+        matcher: { type: "regex", pattern: "ready" },
+      },
+      {
+        type: "xml",
+        name: "xml",
+        xpath: "/o:order",
+        namespaces: { o: "urn:orders" },
+        selection: "all",
+        matcher: { type: "exists" },
+      },
+      { type: "regex", name: "no errors", pattern: "ERROR", invert: true },
+    ];
+    const source = {
+      version: 1,
+      name: "test",
+      groups: [
+        {
+          name: "g",
+          children: [
+            {
+              type: "http_request",
+              name: "http",
+              url: "http://localhost",
+              assertions,
+            },
+            {
+              type: "jdbc_request",
+              name: "db",
+              connection: "db",
+              sql: "SELECT 1",
+              assertions,
+            },
+          ],
+        },
+      ],
+    };
+    const document = parseDocument(JSON.stringify(source));
+    expect(document.issues).toEqual([]);
+    expect(JSON.parse(stringify(document.root))).toEqual(source);
+    for (const invalid of [
+      { ...assertions[0], extra: true },
+      { ...assertions[0], matcher: { type: "future" } },
+      { ...assertions[0], matcher: { type: ["exists"] } },
+      { ...assertions[0], selection: ["one"] },
+      {
+        ...assertions[0],
+        matcher: { type: "equals", expected: 1, extra: true },
+      },
+      { ...assertions[2], namespaces: [] },
+      { ...assertions[2], matcher: { type: "equals", expected: 42 } },
+      { ...assertions[3], invert: null },
+      { ...assertions[3], type: "javascript" },
+    ]) {
+      const script = structuredClone(source);
+      script.groups[0].children[0].assertions = [invalid] as typeof assertions;
+      expect(
+        parseDocument(JSON.stringify(script)).issues.length,
+      ).toBeGreaterThan(0);
+    }
   });
   it("treats malformed and future documents as read-only", () => {
     expect(parseDocument("{oops").issues.length).toBeGreaterThan(0);

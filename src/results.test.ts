@@ -14,6 +14,7 @@ const sample: Sample = {
   bytes_sent: 0,
   bytes_received: 0,
   response_body: null,
+  assertions: [],
 };
 it("limits retained rows while retaining engine totals", () => {
   const message: RunMessage = {

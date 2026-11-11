@@ -1,3 +1,5 @@
+import { inspectAssertions } from "./assertions";
+
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ObjectValue = { [key: string]: Json };
@@ -8,6 +10,7 @@ export type Kind =
   | "if"
   | "while"
   | "http_request"
+  | "http_defaults"
   | "jdbc_request"
   | "javascript"
   | "jdbc_connection_configuration";
@@ -29,9 +32,10 @@ export const labels: Record<Kind, string> = {
   if: "IF 条件选择",
   while: "While 循环",
   http_request: "HTTP 采样器",
+  http_defaults: "HTTP 默认配置",
   jdbc_request: "JDBC 采样器",
   javascript: "JavaScript 采样器",
-  jdbc_connection_configuration: "JDBC 配置",
+  jdbc_connection_configuration: "JDBC 连接配置",
 };
 export const icons: Record<Kind, string> = {
   plan: "▤",
@@ -40,6 +44,7 @@ export const icons: Record<Kind, string> = {
   if: "◇",
   while: "⟳",
   http_request: "↗",
+  http_defaults: "⚙",
   jdbc_request: "▱",
   javascript: "JS",
   jdbc_connection_configuration: "⚙",
@@ -141,6 +146,7 @@ const fields: Record<Kind, string[]> = {
   loop: ["type", "count", "children"],
   if: ["type", "name", "condition", "evaluate_all", "children"],
   while: ["type", "name", "condition", "children"],
+  http_defaults: ["type", "settings"],
   http_request: [
     "type",
     "name",
@@ -197,16 +203,21 @@ export function createNode(kind: Kind): EditorNode {
             on_error: "continue",
           }
         : { type: kind };
-  if (kind !== "plan" && kind !== "group" && kind !== "loop")
+  if (
+    kind !== "plan" &&
+    kind !== "group" &&
+    kind !== "loop" &&
+    kind !== "http_defaults"
+  )
     data.name = labels[kind];
   if (kind === "loop") data.count = 1;
   if (kind === "if" || kind === "while") data.condition = "${enabled}";
   if (kind === "http_request")
     Object.assign(data, {
       method: "GET",
-      url: "http://localhost:8080/",
       settings: { save_response_body: true },
     });
+  if (kind === "http_defaults") data.settings = {};
   if (kind === "jdbc_request")
     Object.assign(data, {
       connection: "db",
@@ -373,7 +384,9 @@ export function parseDocument(source: string): Document {
     for (const key of Object.keys(data))
       if (!fields[kind].includes(key))
         issues.push(`${path}.${key} 不在首版编辑范围内`);
-    for (const key of ["assertions", "post_processors"])
+    if ("assertions" in data)
+      inspectAssertions(data.assertions, `${path}.assertions`, issues);
+    for (const key of ["post_processors"])
       if (
         key in data &&
         (!Array.isArray(data[key]) || (data[key] as Json[]).length > 0)

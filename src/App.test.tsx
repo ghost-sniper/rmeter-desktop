@@ -45,6 +45,129 @@ beforeEach(() => {
   vi.clearAllMocks();
   mock.invoke.mockResolvedValue(undefined);
 });
+it("adds HTTP defaults as a group child and saves them as a native configuration component", async () => {
+  mock.save.mockResolvedValue("C:/http-defaults.json");
+  render(<App />);
+  fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));
+  fireEvent.change(screen.getByLabelText(/添加到/), {
+    target: { value: "http_defaults" },
+  });
+  expect(screen.queryByLabelText(/^名称/)).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("服务器名称或 IP"), {
+    target: { value: "127.0.0.1" },
+  });
+  fireEvent.change(screen.getByLabelText("端口"), {
+    target: { value: "9080" },
+  });
+  fireEvent.change(screen.getByLabelText("路径"), {
+    target: { value: "/examples/query" },
+  });
+  fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));
+  fireEvent.change(screen.getByLabelText(/添加到/), {
+    target: { value: "http_request" },
+  });
+  expect(screen.getByLabelText("完整 URL")).toHaveValue("");
+  expect(screen.getByLabelText(/添加到/)).toBeDisabled();
+  fireEvent.click(screen.getByTitle("保存 (Ctrl+S)"));
+  await waitFor(() =>
+    expect(mock.invoke).toHaveBeenCalledWith("write_script", expect.anything()),
+  );
+  const source = JSON.parse(
+    mock.invoke.mock.calls.find(([command]) => command === "write_script")![1]
+      .source,
+  );
+  expect(source.groups[0].children[0]).toEqual({
+    type: "http_defaults",
+    settings: { host: "127.0.0.1", port: 9080, path: "/examples/query" },
+  });
+  expect(source.groups[0].children[1]).not.toHaveProperty("children");
+});
+it("adds JDBC configuration under both plan and thread group and saves native scopes", async () => {
+  mock.save.mockResolvedValue("C:/jdbc-scopes.json");
+  render(<App />);
+  fireEvent.change(screen.getByLabelText(/添加到/), {
+    target: { value: "jdbc_connection_configuration" },
+  });
+  fireEvent.change(screen.getByLabelText(/^名称/), {
+    target: { value: "全局连接" },
+  });
+  fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));
+  fireEvent.change(screen.getByLabelText(/添加到/), {
+    target: { value: "jdbc_connection_configuration" },
+  });
+  fireEvent.change(screen.getByLabelText(/^名称/), {
+    target: { value: "组内连接" },
+  });
+  fireEvent.click(screen.getByTitle("保存 (Ctrl+S)"));
+  await waitFor(() =>
+    expect(mock.invoke).toHaveBeenCalledWith("write_script", expect.anything()),
+  );
+  const call = mock.invoke.mock.calls.find(
+    ([command]) => command === "write_script",
+  )!;
+  const saved = JSON.parse(call[1].source);
+  expect(saved.jdbc_connections[0]).toMatchObject({
+    name: "全局连接",
+    variable_name: "db",
+  });
+  expect(saved.jdbc_connections[0]).not.toHaveProperty("type");
+  expect(saved.groups[0].children[0]).toMatchObject({
+    type: "jdbc_connection_configuration",
+    name: "组内连接",
+  });
+});
+it("shows assertion failure details even when HTTP returned 200", async () => {
+  mock.invoke.mockImplementation(async (command, args) => {
+    if (command === "start_run") {
+      args.channel.onmessage({
+        run_id: "assertions",
+        status: "completed",
+        error: null,
+        summary: { samples: 1, passed: 0, failed: 1, finished: true },
+        events: [
+          {
+            body_truncated: false,
+            event: {
+              type: "sample_completed",
+              label: "业务响应",
+              group_name: "g",
+              user_index: 0,
+              iteration: 0,
+              started_at_ms: 0,
+              elapsed_ms: 1,
+              success: false,
+              response_code: "200",
+              response_message: "OK",
+              bytes_sent: 0,
+              bytes_received: 12,
+              response_body: null,
+              assertions: [
+                {
+                  name: "JSON 业务码",
+                  success: false,
+                  message: 'JSONPath "$.code": expected equals 200; found 400',
+                },
+                { name: "正文正则", success: true, message: null },
+              ],
+            },
+          },
+        ],
+      } satisfies RunMessage);
+      return "assertions";
+    }
+  });
+  render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: /▶\s*运行/ }));
+  fireEvent.click(await screen.findByRole("row", { name: /业务响应/ }));
+  expect(screen.getByText("1/2 通过")).toBeInTheDocument();
+  const details = within(screen.getByRole("region", { name: "断言结果" }));
+  expect(details.getByText("× 失败 · JSON 业务码")).toBeInTheDocument();
+  expect(details.getByText("✓ 通过 · 正文正则")).toBeInTheDocument();
+  expect(
+    details.getByText(/expected equals 200; found 400/),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("存在失败采样");
+});
 it("creates a sampler and preserves form edits across node selection", () => {
   render(<App />);
   fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));

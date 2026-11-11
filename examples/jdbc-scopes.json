@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "name": "JDBC 配置继承与覆盖验证",
+  "jdbc_connections": [
+    {
+      "name": "pg_catalog连接",
+      "variable_name": "db",
+      "url": "postgresql://106.54.164.19:25432/ipds_dev?sslmode=disable&options=-c%20search_path%3Dpg_catalog",
+      "username": "postgres",
+      "password_env": "RMETER_INTEGRATION_DB_PASSWORD",
+      "max_connections": 1,
+      "connect_timeout_ms": 5000,
+      "acquire_timeout_ms": 5000
+    }
+  ],
+  "groups": [
+    {
+      "name": "全局继承",
+      "users": 1,
+      "iterations": 1,
+      "children": [
+        {
+          "type": "jdbc_request",
+          "name": "global before",
+          "connection": "db",
+          "sql": "SELECT current_setting('search_path')::text AS scope",
+          "query_type": "select",
+          "query_timeout_ms": 5000,
+          "save_response_body": true,
+          "assertions": [
+            {
+              "type": "json",
+              "name": "连接作用域",
+              "path": "$.rows[0][0]",
+              "matcher": {
+                "type": "equals",
+                "expected": "pg_catalog"
+              }
+            }
+          ]
+        },
+        {
+          "type": "loop",
+          "count": 1,
+          "children": [
+            {
+              "type": "jdbc_request",
+              "name": "inner override",
+              "connection": "db",
+              "sql": "SELECT current_setting('search_path')::text AS scope",
+              "query_type": "select",
+              "query_timeout_ms": 5000,
+              "save_response_body": true,
+              "assertions": [
+                {
+                  "type": "json",
+                  "name": "连接作用域",
+                  "path": "$.rows[0][0]",
+                  "matcher": {
+                    "type": "equals",
+                    "expected": "pg_temp"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "jdbc_connection_configuration",
+              "name": "pg_temp连接",
+              "variable_name": "db",
+              "url": "postgresql://106.54.164.19:25432/ipds_dev?sslmode=disable&options=-c%20search_path%3Dpg_temp",
+              "username": "postgres",
+              "password_env": "RMETER_INTEGRATION_DB_PASSWORD",
+              "max_connections": 1,
+              "connect_timeout_ms": 5000,
+              "acquire_timeout_ms": 5000
+            }
+          ]
+        },
+        {
+          "type": "jdbc_request",
+          "name": "global after",
+          "connection": "db",
+          "sql": "SELECT current_setting('search_path')::text AS scope",
+          "query_type": "select",
+          "query_timeout_ms": 5000,
+          "save_response_body": true,
+          "assertions": [
+            {
+              "type": "json",
+              "name": "连接作用域",
+              "path": "$.rows[0][0]",
+              "matcher": {
+                "type": "equals",
+                "expected": "pg_catalog"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "线程组覆盖",
+      "users": 1,
+      "iterations": 1,
+      "children": [
+        {
+          "type": "jdbc_request",
+          "name": "group before config",
+          "connection": "db",
+          "sql": "SELECT current_setting('search_path')::text AS scope",
+          "query_type": "select",
+          "query_timeout_ms": 5000,
+          "save_response_body": true,
+          "assertions": [
+            {
+              "type": "json",
+              "name": "连接作用域",
+              "path": "$.rows[0][0]",
+              "matcher": {
+                "type": "equals",
+                "expected": "public"
+              }
+            }
+          ]
+        },
+        {
+          "type": "loop",
+          "count": 1,
+          "children": [
+            {
+              "type": "jdbc_request",
+              "name": "group descendant",
+              "connection": "db",
+              "sql": "SELECT current_setting('search_path')::text AS scope",
+              "query_type": "select",
+              "query_timeout_ms": 5000,
+              "save_response_body": true,
+              "assertions": [
+                {
+                  "type": "json",
+                  "name": "连接作用域",
+                  "path": "$.rows[0][0]",
+                  "matcher": {
+                    "type": "equals",
+                    "expected": "public"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "if",
+              "name": "内层覆盖",
+              "condition": true,
+              "children": [
+                {
+                  "type": "jdbc_request",
+                  "name": "nested override",
+                  "connection": "db",
+                  "sql": "SELECT current_setting('search_path')::text AS scope",
+                  "query_type": "select",
+                  "query_timeout_ms": 5000,
+                  "save_response_body": true,
+                  "assertions": [
+                    {
+                      "type": "json",
+                      "name": "连接作用域",
+                      "path": "$.rows[0][0]",
+                      "matcher": {
+                        "type": "equals",
+                        "expected": "pg_temp"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "jdbc_connection_configuration",
+                  "name": "pg_temp连接",
+                  "variable_name": "db",
+                  "url": "postgresql://106.54.164.19:25432/ipds_dev?sslmode=disable&options=-c%20search_path%3Dpg_temp",
+                  "username": "postgres",
+                  "password_env": "RMETER_INTEGRATION_DB_PASSWORD",
+                  "max_connections": 1,
+                  "connect_timeout_ms": 5000,
+                  "acquire_timeout_ms": 5000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "jdbc_request",
+          "name": "group after",
+          "connection": "db",
+          "sql": "SELECT current_setting('search_path')::text AS scope",
+          "query_type": "select",
+          "query_timeout_ms": 5000,
+          "save_response_body": true,
+          "assertions": [
+            {
+              "type": "json",
+              "name": "连接作用域",
+              "path": "$.rows[0][0]",
+              "matcher": {
+                "type": "equals",
+                "expected": "public"
+              }
+            }
+          ]
+        },
+        {
+          "type": "jdbc_connection_configuration",
+          "name": "public连接",
+          "variable_name": "db",
+          "url": "postgresql://106.54.164.19:25432/ipds_dev?sslmode=disable&options=-c%20search_path%3Dpublic",
+          "username": "postgres",
+          "password_env": "RMETER_INTEGRATION_DB_PASSWORD",
+          "max_connections": 1,
+          "connect_timeout_ms": 5000,
+          "acquire_timeout_ms": 5000
+        }
+      ]
+    },
+    {
+      "name": "另一线程组",
+      "users": 1,
+      "iterations": 1,
+      "children": [
+        {
+          "type": "jdbc_request",
+          "name": "other group global",
+          "connection": "db",
+          "sql": "SELECT current_setting('search_path')::text AS scope",
+          "query_type": "select",
+          "query_timeout_ms": 5000,
+          "save_response_body": true,
+          "assertions": [
+            {
+              "type": "json",
+              "name": "连接作用域",
+              "path": "$.rows[0][0]",
+              "matcher": {
+                "type": "equals",
+                "expected": "pg_catalog"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
