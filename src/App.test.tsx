@@ -13,6 +13,7 @@ const mock = vi.hoisted(() => ({
   open: vi.fn(),
   save: vi.fn(),
   setTitle: vi.fn().mockResolvedValue(undefined),
+  setTheme: vi.fn().mockResolvedValue(undefined),
   destroy: vi.fn().mockResolvedValue(undefined),
   close: undefined as
     ((event: { preventDefault: () => void }) => void) | undefined,
@@ -31,6 +32,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     setTitle: mock.setTitle,
+    setTheme: mock.setTheme,
     destroy: mock.destroy,
     onCloseRequested: async (
       handler: (event: { preventDefault: () => void }) => void,
@@ -44,7 +46,35 @@ import App from "./App";
 import { RunMessage } from "./results";
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
   mock.invoke.mockResolvedValue(undefined);
+});
+
+it("keeps unsaved node input and native script data when switching themes", async () => {
+  mock.save.mockResolvedValue("C:/theme-check.json");
+  render(<App />);
+  fireEvent.change(screen.getByRole("textbox", { name: "名称 *" }), {
+    target: { value: "保留编辑内容" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /切换主题/ }));
+  fireEvent.click(screen.getByRole("button", { name: "EVA" }));
+  expect(screen.getByRole("textbox", { name: "名称 *" })).toHaveValue(
+    "保留编辑内容",
+  );
+  expect(screen.getByText(/有未保存的修改/)).toBeInTheDocument();
+  fireEvent.click(screen.getByTitle("保存 (Ctrl+S)"));
+  await waitFor(() =>
+    expect(mock.invoke).toHaveBeenCalledWith(
+      "write_script",
+      expect.objectContaining({ source: expect.any(String) }),
+    ),
+  );
+  const args = mock.invoke.mock.calls.find(
+    ([command]) => command === "write_script",
+  )![1];
+  const script = JSON.parse(args.source);
+  expect(script.name).toBe("保留编辑内容");
+  expect(script).not.toHaveProperty("theme");
 });
 it.each([
   [

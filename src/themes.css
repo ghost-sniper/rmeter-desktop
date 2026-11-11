@@ -1,0 +1,474 @@
+:root {
+  --canvas: #f4f6f8;
+  --surface: #ffffff;
+  --panel: #f8fafc;
+  --toolbar: #fafbfc;
+  --input: #ffffff;
+  --input-disabled: #f2f4f6;
+  --text: #27313e;
+  --text-secondary: #586879;
+  --muted: #6e7d8e;
+  --border: #dce3eb;
+  --border-strong: #aab8ca;
+  --hover: #eaf0f6;
+  --selected: #e1ecfa;
+  --accent: #245d9f;
+  --accent-alt: #8064a9;
+  --focus: #3b78d0;
+  --success: #20734f;
+  --danger: #a2423d;
+  --warning: #936922;
+  --success-bg: #edf8f1;
+  --danger-bg: #fff0ef;
+  --warning-bg: #fffbf1;
+  --code-bg: #f7f9fc;
+  --code-text: #49647e;
+  --scrim: #21314966;
+  --shadow: #14243933;
+  --artwork: none;
+  --artwork-position: center;
+  --detail-wash: var(--surface);
+  --form-wash: transparent;
+}
+
+:root:where([data-theme]:not([data-theme="light"])) {
+  --canvas: #111820;
+  --surface: #18222e;
+  --panel: #141e29;
+  --toolbar: #16212d;
+  --input: #101923;
+  --input-disabled: #202a35;
+  --text: #e5edf6;
+  --text-secondary: #c1cedc;
+  --muted: #98aabe;
+  --border: #344458;
+  --border-strong: #687e96;
+  --hover: #26394b;
+  --selected: #213e59;
+  --accent: #8bc6ff;
+  --accent-alt: #c3a9ec;
+  --focus: #8bc6ff;
+  --success: #79d7a8;
+  --danger: #ffaaa1;
+  --warning: #ebc17b;
+  --success-bg: #173b2d;
+  --danger-bg: #462825;
+  --warning-bg: #40341f;
+  --code-bg: #101923;
+  --code-text: #c2d6ec;
+  --scrim: #03070bcc;
+  --shadow: #00000077;
+}
+
+:root[data-theme="cyberpunk"] {
+  --canvas: #080e16;
+  --surface: #101a24;
+  --panel: #0c1722f5;
+  --toolbar: #0c1722f5;
+  --input: #09131ef5;
+  --border: #37515d;
+  --border-strong: #7ab9bf;
+  --accent: #f5ee36;
+  --accent-alt: #56e5ed;
+  --focus: #56e5ed;
+  --hover: #253b40;
+  --selected: #39402b;
+  --artwork: url("/themes/cyberpunk.jpg");
+  --detail-wash: linear-gradient(
+    90deg,
+    #08121cf5 0%,
+    #08121cd9 40%,
+    #08121c66 100%
+  );
+  --form-wash: #08121c9e;
+}
+
+:root[data-theme="eva"] {
+  --canvas: #151022;
+  --surface: #21182f;
+  --panel: #1b1429f5;
+  --toolbar: #1b1429f5;
+  --input: #140e20f5;
+  --input-disabled: #30283e;
+  --text: #f0ebff;
+  --text-secondary: #d3c9e8;
+  --muted: #b5a6cc;
+  --border: #54416b;
+  --border-strong: #9b79c7;
+  --accent: #b5f36c;
+  --accent-alt: #c8a0ff;
+  --focus: #b5f36c;
+  --hover: #392b4e;
+  --selected: #3c3552;
+  --code-bg: #140e20;
+  --code-text: #e0cef5;
+  --artwork: url("/themes/eva.jpg");
+  --detail-wash: linear-gradient(
+    90deg,
+    #181022f5 0%,
+    #181022d9 40%,
+    #18102273 100%
+  );
+  --form-wash: #181022a6;
+}
+
+:root[data-theme="death-stranding"] {
+  --canvas: #101d26;
+  --surface: #1c2b35;
+  --panel: #15252ff5;
+  --toolbar: #15252ff5;
+  --input: #10212bf5;
+  --text: #e8f2f5;
+  --text-secondary: #c4d9e2;
+  --muted: #a4bdc9;
+  --border: #455f6d;
+  --border-strong: #88a6b6;
+  --accent: #a0d9f1;
+  --accent-alt: #edc77e;
+  --focus: #a0d9f1;
+  --hover: #304955;
+  --selected: #2c4d60;
+  --artwork: url("/themes/death-stranding.jpg");
+  --artwork-position: 65% center;
+  --detail-wash: linear-gradient(
+    90deg,
+    #10212bf5 0%,
+    #10212bd9 40%,
+    #10212b80 100%
+  );
+  --form-wash: #10212bb3;
+}
+
+:root[data-theme="wukong"] {
+  --canvas: #191812;
+  --surface: #29271f;
+  --panel: #211f18f5;
+  --toolbar: #211f18f5;
+  --input: #191810f5;
+  --input-disabled: #343126;
+  --text: #f3ecdd;
+  --text-secondary: #d8ccb6;
+  --muted: #b6aa95;
+  --border: #5d503b;
+  --border-strong: #9f8964;
+  --accent: #e6c383;
+  --accent-alt: #c4d0a1;
+  --focus: #e6c383;
+  --hover: #403a2c;
+  --selected: #4b402b;
+  --code-bg: #191810;
+  --code-text: #e6d8ba;
+  --artwork: url("/themes/wukong.jpg");
+  --artwork-position: 68% center;
+  --detail-wash: linear-gradient(
+    90deg,
+    #1b1913f5 0%,
+    #1b1913d9 40%,
+    #1b191359 100%
+  );
+  --form-wash: #1b1913a6;
+}
+
+html {
+  background: var(--canvas);
+  color: var(--text);
+  accent-color: var(--accent);
+  scrollbar-color: var(--border-strong) var(--panel);
+}
+.app {
+  position: relative;
+  isolation: isolate;
+}
+.app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--canvas);
+  background-image: var(--artwork);
+  background-size: cover;
+  background-position: var(--artwork-position);
+  pointer-events: none;
+}
+.detail-panel {
+  background: var(--detail-wash);
+}
+:root[data-artwork="true"] .detail-heading {
+  min-height: 124px;
+}
+:root[data-artwork="true"] .detail-heading h1 {
+  text-shadow: 0 2px 12px #000c;
+}
+:root[data-artwork="true"] .form-section {
+  background: var(--form-wash);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 18px;
+}
+:root[data-artwork="true"] .tabs {
+  background: var(--panel);
+}
+:root[data-theme="cyberpunk"] .tabs button.selected {
+  border-bottom-color: var(--accent);
+}
+:root[data-theme="eva"] .app-header {
+  border-bottom: 2px solid var(--accent-alt);
+}
+:root[data-theme="wukong"] .detail-heading h1 {
+  font-family: "STKaiti", "KaiTi", "Microsoft YaHei", serif;
+  letter-spacing: 1px;
+}
+.app-header {
+  gap: 24px;
+}
+.header-state {
+  margin-left: 0;
+  min-width: 64px;
+  justify-content: flex-end;
+}
+
+.theme-picker {
+  position: relative;
+  margin-left: auto;
+  flex: none;
+  z-index: 40;
+}
+.theme-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  font-size: 11px;
+  background: transparent;
+}
+.theme-current {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.theme-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--selected);
+}
+.theme-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 440px;
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 18px 50px var(--shadow);
+}
+.theme-panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.theme-panel-heading strong {
+  font-size: 14px;
+}
+.theme-panel-heading > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.theme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.theme-option {
+  min-width: 0;
+  padding: 0 0 10px;
+  overflow: hidden;
+  text-align: left;
+  white-space: normal;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.theme-option[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.theme-option > strong,
+.theme-option > small {
+  display: block;
+  margin: 8px 10px 0;
+}
+.theme-option > strong {
+  font-size: 11px;
+}
+.theme-option > small {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.theme-thumbnail {
+  display: block;
+  position: relative;
+  height: 80px;
+  overflow: hidden;
+  background: #e8eef5;
+}
+.theme-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.theme-swatches {
+  position: absolute;
+  bottom: 7px;
+  left: 8px;
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 8px;
+  background: #0008;
+}
+.theme-swatches i {
+  height: 7px;
+  width: 16px;
+  background: #f4f6f8;
+  border-radius: 2px;
+}
+.theme-swatches i:nth-child(2) {
+  background: #92a8bf;
+}
+.theme-swatches i:nth-child(3) {
+  background: #3b78d0;
+}
+.theme-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--canvas);
+  background: var(--accent);
+  font-weight: 700;
+}
+.theme-mini-window {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: absolute;
+  width: 75%;
+  height: 60px;
+  top: 12px;
+  right: -3px;
+  padding: 10px 12px 10px 35px;
+  background: #fff;
+  border: 1px solid #c3cfdd;
+  border-radius: 5px;
+  box-shadow: 0 3px 14px #0002;
+}
+.theme-mini-window i {
+  height: 5px;
+  width: 85%;
+  background: #dce5ee;
+  border-radius: 2px;
+}
+.theme-mini-window i:first-child {
+  width: 50%;
+  background: #8aafd9;
+}
+[data-preview-theme="dark"] .theme-thumbnail {
+  background: #0d151e;
+}
+[data-preview-theme="dark"] .theme-mini-window {
+  background: #1b2b3d;
+  border-color: #43566e;
+}
+[data-preview-theme="dark"] .theme-mini-window i {
+  background: #56718b;
+}
+[data-preview-theme="dark"] .theme-swatches i:first-child {
+  background: #18222e;
+}
+[data-preview-theme="cyberpunk"] .theme-swatches i {
+  background: #0c1722;
+}
+[data-preview-theme="cyberpunk"] .theme-swatches i:nth-child(2) {
+  background: #f5ee36;
+}
+[data-preview-theme="cyberpunk"] .theme-swatches i:nth-child(3) {
+  background: #56e5ed;
+}
+[data-preview-theme="eva"] .theme-swatches i {
+  background: #21182f;
+}
+[data-preview-theme="eva"] .theme-swatches i:nth-child(2) {
+  background: #b5f36c;
+}
+[data-preview-theme="eva"] .theme-swatches i:nth-child(3) {
+  background: #a779e1;
+}
+[data-preview-theme="death-stranding"] .theme-swatches i {
+  background: #1c2b35;
+}
+[data-preview-theme="death-stranding"] .theme-swatches i:nth-child(2) {
+  background: #a0d9f1;
+}
+[data-preview-theme="death-stranding"] .theme-swatches i:nth-child(3) {
+  background: #edc77e;
+}
+[data-preview-theme="wukong"] .theme-swatches i {
+  background: #29271f;
+}
+[data-preview-theme="wukong"] .theme-swatches i:nth-child(2) {
+  background: #e6c383;
+}
+[data-preview-theme="wukong"] .theme-swatches i:nth-child(3) {
+  background: #c4d0a1;
+}
+.theme-note {
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 12px 0 0;
+}
+@media (max-width: 1100px) {
+  .app-header {
+    gap: 14px;
+  }
+  .theme-current {
+    max-width: 100px;
+  }
+  .version {
+    display: none;
+  }
+  nav > .menu-wrap > button {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+@media (max-height: 740px) {
+  :root[data-artwork="true"] .detail-heading {
+    min-height: 92px;
+  }
+  .theme-thumbnail {
+    height: 58px;
+  }
+}
+@media (forced-colors: active) {
+  .app::before {
+    background-image: none;
+  }
+  .theme-option[aria-pressed="true"] {
+    outline-color: Highlight;
+  }
+}

@@ -32,6 +32,7 @@ import {
 import NodeForm, { Draft, Drafts } from "./NodeForm";
 import { RunMessage, emptyResults, receiveResults } from "./results";
 import "./App.css";
+import ThemePicker from "./ThemePicker";
 
 const filter = [{ name: "rmeter 测试脚本", extensions: ["json"] }];
 const componentMenus: { label: string; kinds: Kind[] }[] = [
@@ -657,6 +658,7 @@ export default function App() {
             </div>
           ))}
         </nav>
+        <ThemePicker />
         <span className="header-state">
           <span className={`status-dot ${running ? "live" : ""}`} />
           {statusLabel[runState]}

@@ -46,6 +46,7 @@ bun run prepare:worker --force
 
 ## 使用
 
+- 顶部“主题”提供 Light、Dark、Cyberpunk 2077、EVA、Death Stranding 和 Black Myth: Wukong 六种外观。主题即时生效并在本机记忆；切换不会改动脚本或丢失输入，运行期间也可切换。作品背景内置于应用，无需联网；图片来源和版权说明见 [public/themes/SOURCES.md](public/themes/SOURCES.md)。
 - 新建测试计划，选择线程组，通过右键或左下方选择器添加组件。树支持复制、删除、上下移动、移动到合法父节点及方向键导航。
 - 右键菜单按“配置元件”（JDBC 连接配置、HTTP 默认配置）、“采样器”（HTTP、JDBC、JavaScript）和“逻辑控制器”（Loop、While、IF）分类，悬停或点击展开子菜单；仅显示当前父节点允许添加的组件，测试计划下仍可直接添加线程组。
 - `Ctrl+N` 新建、`Ctrl+O` 打开、`Ctrl+S` 保存、`Ctrl+Shift+S` 另存为；树内 `Ctrl+D` 复制、`Delete` 删除。
