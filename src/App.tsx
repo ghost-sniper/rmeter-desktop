@@ -7,6 +7,10 @@ import {
   Kind,
   ObjectValue,
   allowed,
+  isProcessor,
+  sameProcessorPhase,
+  extractorKinds,
+  orderChildren,
   cloneNode,
   componentKinds,
   createNode,
@@ -36,6 +40,11 @@ const componentMenus: { label: string; kinds: Kind[] }[] = [
   },
   { label: "采样器", kinds: ["http_request", "jdbc_request", "javascript"] },
   { label: "逻辑控制器", kinds: ["loop", "while", "if"] },
+  { label: "前置处理器", kinds: ["javascript_preprocessor"] },
+  {
+    label: "后置处理器",
+    kinds: ["javascript_postprocessor", ...extractorKinds],
+  },
 ];
 type RunState =
   | "idle"
@@ -374,7 +383,7 @@ export default function App() {
     edit(
       updateNode(document.root, parentId, (n) => ({
         ...n,
-        children: [...n.children, child],
+        children: orderChildren([...n.children, child]),
       })),
     );
     setSelected(child.id);
@@ -764,7 +773,16 @@ export default function App() {
               <button
                 title="上移"
                 disabled={
-                  disabled || !parent || parent.children[0].id === node.id
+                  disabled ||
+                  !parent ||
+                  parent.children[0].id === node.id ||
+                  (isProcessor(node.kind) &&
+                    !sameProcessorPhase(
+                      node.kind,
+                      parent.children[
+                        parent.children.findIndex((n) => n.id === node.id) - 1
+                      ]?.kind,
+                    ))
                 }
                 onClick={() => edit(reorderNode(document.root, node.id, -1))}
               >
@@ -775,7 +793,14 @@ export default function App() {
                 disabled={
                   disabled ||
                   !parent ||
-                  parent.children[parent.children.length - 1].id === node.id
+                  parent.children[parent.children.length - 1].id === node.id ||
+                  (isProcessor(node.kind) &&
+                    !sameProcessorPhase(
+                      node.kind,
+                      parent.children[
+                        parent.children.findIndex((n) => n.id === node.id) + 1
+                      ]?.kind,
+                    ))
                 }
                 onClick={() => edit(reorderNode(document.root, node.id, 1))}
               >
@@ -897,11 +922,12 @@ export default function App() {
                 </ul>
               </div>
             )}
-            {node.kind === "javascript" && workerError && (
-              <div className="readonly-notice">
-                JavaScript worker 不可用：{workerError}
-              </div>
-            )}
+            {(node.kind === "javascript" || isProcessor(node.kind)) &&
+              workerError && (
+                <div className="readonly-notice">
+                  JavaScript / 提取器 worker 不可用：{workerError}
+                </div>
+              )}
             {hasDrafts && (
               <div className="draft-notice">
                 有 {Object.keys(drafts).length}{" "}
@@ -1023,6 +1049,24 @@ export default function App() {
                   {selectedRow.sample.response_message && (
                     <pre>{selectedRow.sample.response_message}</pre>
                   )}
+                  <section className="script-logs" aria-label="脚本日志">
+                    <h4>脚本日志</h4>
+                    {selectedRow.sample.script_logs?.entries.length ? (
+                      <pre>
+                        {selectedRow.sample.script_logs.entries
+                          .map(
+                            (entry) =>
+                              `[${entry.level.toUpperCase()}] ${entry.source}: ${entry.message}`,
+                          )
+                          .join("\n")}
+                      </pre>
+                    ) : (
+                      <p>无脚本日志</p>
+                    )}
+                    {selectedRow.sample.script_logs?.truncated && (
+                      <p className="warning">日志已截断或因缓存限制释放。</p>
+                    )}
+                  </section>
                   <section className="assertion-results" aria-label="断言结果">
                     <h4>断言结果</h4>
                     {selectedRow.sample.assertions?.length ? (

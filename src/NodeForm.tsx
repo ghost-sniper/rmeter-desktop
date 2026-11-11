@@ -8,6 +8,8 @@ import {
   setValue,
   labels,
   object,
+  isJavaScriptProcessor,
+  isExtractor,
 } from "./model";
 
 export interface Draft {
@@ -26,6 +28,7 @@ type Field = {
   path: string;
   label: string;
   type?:
+    | "integer"
     | "number"
     | "text"
     | "password"
@@ -229,7 +232,7 @@ const specificFields: Partial<Record<EditorNode["kind"], Field[]>> = {
       label: "JavaScript",
       type: "code",
       required: true,
-      hint: "vars.get / put / remove / contains；ctx.groupName / userIndex / iteration / lastSampleOk。不提供浏览器、Node.js 或异步 I/O。",
+      hint: "vars.get / put / remove / contains；ctx.groupName / userIndex / iteration / lastSampleOk；log.trace / debug / info / warn / error。变量为字符串，不提供 Java、浏览器、Node.js 或异步 I/O。",
     },
     {
       path: "timeout_ms",
@@ -257,7 +260,7 @@ function InputField({ field, ...props }: Props & { field: Field }) {
     onChange(setValue(node.data, field.path, v));
   };
   const accept = (text: string) => {
-    if (!text && !field.required) {
+    if (!text && !field.required && field.path !== "default_value") {
       change(undefined);
       return;
     }
@@ -268,6 +271,7 @@ function InputField({ field, ...props }: Props & { field: Field }) {
     if (
       field.type === "json" ||
       field.type === "number" ||
+      field.type === "integer" ||
       field.type === "count"
     ) {
       try {
@@ -283,9 +287,13 @@ function InputField({ field, ...props }: Props & { field: Field }) {
           field.type !== "json" &&
           next !== "infinite" &&
           next !== null &&
-          (!text.trim() || !Number.isSafeInteger(next) || Number(next) < 0)
+          (!text.trim() ||
+            !Number.isSafeInteger(next) ||
+            (field.type !== "integer" && Number(next) < 0))
         )
-          throw Error("请输入非负安全整数");
+          throw Error(
+            field.type === "integer" ? "请输入安全整数" : "请输入非负安全整数",
+          );
         change(next);
       } catch (e) {
         setDraft(key, {
@@ -815,8 +823,101 @@ export default function NodeForm(props: Props) {
               配置顺序不影响引用；子作用域的同名配置覆盖外层，同层不允许重名。
             </p>
           )}
+          {isJavaScriptProcessor(node.kind) && (
+            <p className="field-hint">
+              {node.kind === "javascript_preprocessor"
+                ? "在父采样器展开参数前执行，可用 vars.put 设置本次请求变量。多个前置处理器按树内顺序执行。"
+                : "在父采样器完成后、断言前执行。prev.body / getResponseDataAsString() 读取响应，prev.responseCode / getResponseCode() 读取状态码，prev.success / isSuccessful() 读取采样状态；prev 为只读快照，响应不可用时 body 为 null。"}{" "}
+              ctx.getThreadNum()、ctx.getVariables()、vars.getIteration()、sampler.getName()
+              和 Label 可用。 log
+              日志在父采样器结果详情中查看。处理器失败会使父采样失败，并停止同阶段后续处理器；前置失败时不执行采样器及后置处理器。
+            </p>
+          )}
+          {isExtractor(node.kind) && (
+            <p className="field-hint">
+              提取父 HTTP 采样器的完整 UTF-8
+              响应正文，在断言前按树内顺序执行。结果写入当前用户变量，可供后续
+              JavaScript
+              或采样器使用。每次执行清理旧值；无匹配使用默认值，格式错误、超时或容量超限使父采样失败。默认值缺省或
+              null 表示不设置基础变量，空字符串表示空默认值。
+            </p>
+          )}
           <div className="form-grid">
-            {(specificFields[node.kind] ?? []).map(render)}
+            {isExtractor(node.kind) && (
+              <>
+                {render({
+                  path: "variable_name",
+                  label: "变量名",
+                  required: true,
+                  hint: "例如 token；通过 ${token} 访问；token_matchNr 为匹配总数。全部匹配时使用 token_1、token_2……。",
+                })}
+                {render({
+                  path: "expression",
+                  label: "提取表达式",
+                  type: "code",
+                  required: true,
+                  hint:
+                    node.kind === "xpath2_extractor"
+                      ? "XPath 2.0 语法，例如 for $x in //item return upper-case(string($x))。使用 XPath 3.1 引擎，无外部文档/环境变量访问。"
+                      : node.kind === "xpath_extractor"
+                        ? "XPath 1.0，返回节点字符串值或标量；XML 需格式正确，不支持 HTML 容错。"
+                        : node.kind === "jsonpath_extractor"
+                          ? "例如 $.items[*].id；字符串原样保存，其他值保存为 JSON 文本。"
+                          : node.kind === "jmespath_extractor"
+                            ? "例如 items[?active].id；数组结果按元素匹配，null 表示无匹配。"
+                            : "Rust 正则表达式；支持捕获组和内联标志，不支持回溯引用或环视。",
+                })}
+                {render({
+                  path: "match_number",
+                  label: "匹配序号",
+                  type: "integer",
+                  hint: "默认 1；正数取第 N 项，0 随机一项，-1 保存全部匹配。",
+                })}
+                {render({
+                  path: "default_value",
+                  label: "默认值",
+                  hint: "无匹配时使用；重置表示不设置。",
+                })}
+                {node.kind === "regex_extractor" &&
+                  render({
+                    path: "template",
+                    label: "结果模板",
+                    required: true,
+                    hint: "$1$ 为第一个捕获组，$0$ 为整个匹配；例如 ID=$1$。分组同时存入 变量_g0、变量_g1……。",
+                  })}
+                {(node.kind === "xpath_extractor" ||
+                  node.kind === "xpath2_extractor") &&
+                  render({
+                    path: "namespaces",
+                    label: "命名空间（JSON）",
+                    type: "json",
+                    hint: '例如 {"ns":"urn:example"}；表达式中使用 //ns:item。XPath2 可用空前缀指定默认命名空间。',
+                  })}
+                {render({
+                  path: "timeout_ms",
+                  label: "提取超时（ms）",
+                  type: "number",
+                  hint: "默认 1000；范围 1–60000",
+                })}
+                {render({
+                  path: "max_matches",
+                  label: "最大匹配数量",
+                  type: "number",
+                  hint: "默认 1000；超过限制时失败，不保存部分结果。",
+                })}
+                {render({
+                  path: "max_variable_bytes",
+                  label: "变量容量（bytes）",
+                  type: "number",
+                  hint: "默认 1048576；包括当前用户已有变量。",
+                })}
+              </>
+            )}
+            {(
+              specificFields[
+                isJavaScriptProcessor(node.kind) ? "javascript" : node.kind
+              ] ?? []
+            ).map(render)}
             {node.kind === "plan" && (
               <Pairs {...props} path="variables" label="用户变量" variables />
             )}
@@ -970,6 +1071,19 @@ export default function NodeForm(props: Props) {
                 required: true,
               })
             )}
+          </div>
+        </div>
+      )}
+      {node.kind === "http_request" && (
+        <div className="form-section">
+          <h3>后置处理器响应输入</h3>
+          <div className="form-grid">
+            {render({
+              path: "max_post_processor_body_bytes",
+              label: "完整响应上限（bytes）",
+              type: "number",
+              hint: "默认 8388608；独立于响应预览与断言。超限时 prev.body 为 null，并提供 bodyUnavailableReason。",
+            })}
           </div>
         </div>
       )}

@@ -282,3 +282,35 @@ it("adds variables without overwriting an existing generated name", () => {
     { variable2: "keep", variable3: "" },
   );
 });
+
+it("edits extractor match numbers, defaults and namespace drafts without losing values", () => {
+  const extractor = createNode("xpath2_extractor");
+  render(<Harness initial={extractor} />);
+  fireEvent.change(screen.getByLabelText("匹配序号"), {
+    target: { value: "-1" },
+  });
+  expect(JSON.parse(screen.getByTestId("data").textContent!).match_number).toBe(
+    -1,
+  );
+  fireEvent.change(screen.getByLabelText("默认值"), {
+    target: { value: "fallback" },
+  });
+  fireEvent.change(screen.getByLabelText("默认值"), { target: { value: "" } });
+  expect(
+    JSON.parse(screen.getByTestId("data").textContent!).default_value,
+  ).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "重置默认值" }));
+  expect(
+    JSON.parse(screen.getByTestId("data").textContent!),
+  ).not.toHaveProperty("default_value");
+  fireEvent.change(screen.getByLabelText("命名空间（JSON）"), {
+    target: { value: '{"ns":' },
+  });
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("命名空间（JSON）"), {
+    target: { value: '{"ns":"urn:test"}' },
+  });
+  expect(
+    JSON.parse(screen.getByTestId("data").textContent!).namespaces,
+  ).toEqual({ ns: "urn:test" });
+});

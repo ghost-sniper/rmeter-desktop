@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
-rmeter = { git = "https://github.com/ghost-sniper/rmeter.git", rev = "fd6e5773cbeb5387afc0f803007707048d6e5663", default-features = false }
+rmeter = { git = "https://github.com/ghost-sniper/rmeter.git", rev = "5028c0025556a772e2fb09a3337100e17d06a759", default-features = false }
 tokio = { version = "1", features = ["sync", "time", "fs", "macros", "rt"] }
 tempfile = "3"
 serde = { version = "1", features = ["derive"] }

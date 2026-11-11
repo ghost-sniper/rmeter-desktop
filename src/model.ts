@@ -13,6 +13,13 @@ export type Kind =
   | "http_defaults"
   | "jdbc_request"
   | "javascript"
+  | "javascript_preprocessor"
+  | "javascript_postprocessor"
+  | "jsonpath_extractor"
+  | "xpath_extractor"
+  | "jmespath_extractor"
+  | "regex_extractor"
+  | "xpath2_extractor"
   | "jdbc_connection_configuration";
 export interface EditorNode {
   id: string;
@@ -35,6 +42,13 @@ export const labels: Record<Kind, string> = {
   http_defaults: "HTTP 默认配置",
   jdbc_request: "JDBC 采样器",
   javascript: "JavaScript 采样器",
+  javascript_preprocessor: "JavaScript 前置处理器",
+  javascript_postprocessor: "JavaScript 后置处理器",
+  jsonpath_extractor: "JSONPath 提取器",
+  xpath_extractor: "XPath 提取器",
+  jmespath_extractor: "JMESPath 提取器",
+  regex_extractor: "正则表达式提取器",
+  xpath2_extractor: "XPath2 提取器",
   jdbc_connection_configuration: "JDBC 连接配置",
 };
 export const icons: Record<Kind, string> = {
@@ -47,6 +61,13 @@ export const icons: Record<Kind, string> = {
   http_defaults: "⚙",
   jdbc_request: "▱",
   javascript: "JS",
+  javascript_preprocessor: "JS↑",
+  javascript_postprocessor: "JS↓",
+  jsonpath_extractor: "J↓",
+  xpath_extractor: "X↓",
+  jmespath_extractor: "JM↓",
+  regex_extractor: "RE↓",
+  xpath2_extractor: "X2↓",
   jdbc_connection_configuration: "⚙",
 };
 export const componentKinds = Object.keys(labels).filter(
@@ -80,6 +101,42 @@ function inspectEditable(
 ) {
   if (own(data, "enabled") && typeof data.enabled !== "boolean")
     issues.push(`${path}.enabled 必须是布尔值`);
+  if (kind === "javascript" || isJavaScriptProcessor(kind)) {
+    for (const key of ["name", "script"]) {
+      if (own(data, key) && typeof data[key] !== "string")
+        issues.push(`${path}.${key} 必须是字符串`);
+    }
+  }
+  if (isExtractor(kind)) {
+    for (const key of ["name", "variable_name", "expression", "template"]) {
+      if (own(data, key) && typeof data[key] !== "string")
+        issues.push(`${path}.${key} 必须是字符串`);
+    }
+    if (
+      own(data, "default_value") &&
+      data.default_value !== null &&
+      typeof data.default_value !== "string"
+    )
+      issues.push(`${path}.default_value 必须是字符串或 null`);
+    for (const key of [
+      "match_number",
+      "timeout_ms",
+      "max_variable_bytes",
+      "max_matches",
+    ]) {
+      if (
+        own(data, key) &&
+        (typeof data[key] !== "number" || !Number.isSafeInteger(data[key]))
+      )
+        issues.push(`${path}.${key} 必须是整数`);
+    }
+    if (
+      own(data, "namespaces") &&
+      (!object(data.namespaces) ||
+        Object.values(data.namespaces).some((v) => typeof v !== "string"))
+    )
+      issues.push(`${path}.namespaces 必须是字符串命名空间映射`);
+  }
   const pairs = (value: Json, key: string) => {
     if (
       value !== null &&
@@ -134,7 +191,23 @@ function inspectEditable(
   )
     issues.push(`${path}.variable_names 必须是按列顺序排列的字符串数组`);
 }
+const extractorFields = [
+  "type",
+  "name",
+  "variable_name",
+  "expression",
+  "match_number",
+  "default_value",
+  "timeout_ms",
+  "max_variable_bytes",
+  "max_matches",
+];
 const fields: Record<Kind, string[]> = {
+  jsonpath_extractor: extractorFields,
+  jmespath_extractor: extractorFields,
+  xpath_extractor: [...extractorFields, "namespaces"],
+  xpath2_extractor: [...extractorFields, "namespaces"],
+  regex_extractor: [...extractorFields, "template"],
   plan: [
     "version",
     "name",
@@ -164,8 +237,10 @@ const fields: Record<Kind, string[]> = {
     "settings",
     "body",
     "assertions",
+    "pre_processors",
     "post_processors",
     "max_assertion_body_bytes",
+    "max_post_processor_body_bytes",
     "max_post_processor_body_bytes",
   ],
   jdbc_request: [
@@ -183,9 +258,32 @@ const fields: Record<Kind, string[]> = {
     "variable_names",
     "row_count_variable",
     "assertions",
+    "pre_processors",
     "post_processors",
   ],
-  javascript: ["type", "name", "script", "timeout_ms", "max_variable_bytes"],
+  javascript: [
+    "type",
+    "name",
+    "script",
+    "timeout_ms",
+    "max_variable_bytes",
+    "pre_processors",
+    "post_processors",
+  ],
+  javascript_preprocessor: [
+    "type",
+    "name",
+    "script",
+    "timeout_ms",
+    "max_variable_bytes",
+  ],
+  javascript_postprocessor: [
+    "type",
+    "name",
+    "script",
+    "timeout_ms",
+    "max_variable_bytes",
+  ],
   jdbc_connection_configuration: [
     "type",
     "name",
@@ -229,12 +327,33 @@ export function createNode(kind: Kind): EditorNode {
       sql: "SELECT 1",
       parameters: [],
     });
-  if (kind === "javascript")
+  if (kind === "javascript" || isJavaScriptProcessor(kind))
     Object.assign(data, {
       script: 'vars.put("enabled", "true");',
       timeout_ms: 100,
       max_variable_bytes: 1048576,
     });
+  if (isExtractor(kind)) {
+    Object.assign(data, {
+      variable_name: "extracted",
+      expression:
+        kind === "jsonpath_extractor"
+          ? "$.id"
+          : kind === "jmespath_extractor"
+            ? "id"
+            : kind === "regex_extractor"
+              ? "(.*)"
+              : "//item/text()",
+      match_number: 1,
+      default_value: "",
+      timeout_ms: 1000,
+      max_variable_bytes: 1048576,
+      max_matches: 1000,
+    });
+    if (kind === "regex_extractor") data.template = "$1$";
+    if (kind === "xpath_extractor" || kind === "xpath2_extractor")
+      data.namespaces = {};
+  }
   if (kind === "jdbc_connection_configuration")
     Object.assign(data, {
       variable_name: "db",
@@ -253,7 +372,37 @@ export function title(node: EditorNode): string {
     ? node.data.name || "（未命名）"
     : labels[node.kind];
 }
+export const isSampler = (kind: Kind) =>
+  ["http_request", "jdbc_request", "javascript"].includes(kind);
+export const extractorKinds: Kind[] = [
+  "jsonpath_extractor",
+  "xpath_extractor",
+  "jmespath_extractor",
+  "regex_extractor",
+  "xpath2_extractor",
+];
+export const isExtractor = (kind: Kind) => extractorKinds.includes(kind);
+export const isJavaScriptProcessor = (kind: Kind) =>
+  ["javascript_preprocessor", "javascript_postprocessor"].includes(kind);
+export const isPostProcessor = (kind: Kind) =>
+  kind === "javascript_postprocessor" || isExtractor(kind);
+export const isProcessor = (kind: Kind) =>
+  isJavaScriptProcessor(kind) || isExtractor(kind);
+export const sameProcessorPhase = (a: Kind, b?: Kind) =>
+  b !== undefined &&
+  ((isPostProcessor(a) && isPostProcessor(b)) ||
+    (a === "javascript_preprocessor" && b === a));
+// Native JSON has separate ordered pre/post arrays; show that execution order in the tree.
+export function orderChildren(children: EditorNode[]): EditorNode[] {
+  return [
+    ...children.filter((n) => !isPostProcessor(n.kind)),
+    ...children.filter((n) => isPostProcessor(n.kind)),
+  ];
+}
 export function allowed(parent: Kind, child: Kind): boolean {
+  if (isExtractor(child)) return parent === "http_request";
+  if (isSampler(parent)) return isJavaScriptProcessor(child);
+  if (isProcessor(child)) return false;
   if (parent === "plan")
     return child === "group" || child === "jdbc_connection_configuration";
   return (
@@ -313,7 +462,7 @@ export function moveNode(
     return root;
   return updateNode(removeNode(root, id), parentId, (p) => ({
     ...p,
-    children: [...p.children, node],
+    children: orderChildren([...p.children, node]),
   }));
 }
 export function reorderNode(
@@ -325,6 +474,14 @@ export function reorderNode(
   if (!parent) return root;
   const index = parent.children.findIndex((n) => n.id === id),
     next = index + delta;
+  if (
+    isSampler(parent.kind) &&
+    !sameProcessorPhase(
+      parent.children[index].kind,
+      parent.children[next]?.kind,
+    )
+  )
+    return root;
   if (next < 0 || next >= parent.children.length) return root;
   return updateNode(root, parent.id, (p) => {
     const children = [...p.children];
@@ -348,8 +505,24 @@ export function serializeNode(
       data.jdbc_connections = connections;
   } else if (["group", "loop", "if", "while"].includes(node.kind))
     data.children = node.children.map((n) => serializeNode(n));
+  if (isSampler(node.kind)) {
+    for (const [key, kind] of [
+      ["pre_processors", "javascript_preprocessor"],
+      ["post_processors", "javascript_postprocessor"],
+    ]) {
+      const processors = node.children
+        .filter((n) =>
+          kind === "javascript_postprocessor"
+            ? isPostProcessor(n.kind)
+            : n.kind === kind,
+        )
+        .map((n) => serializeNode(n));
+      if (processors.length || key in data) data[key] = processors;
+    }
+  }
   if (globalConnection) delete data.type;
-  else if (node.kind !== "plan" && node.kind !== "group") data.type = node.kind;
+  else if (node.kind !== "plan" && node.kind !== "group")
+    data.type = isJavaScriptProcessor(node.kind) ? "javascript" : node.kind;
   return data;
 }
 export function stringify(root: EditorNode): string {
@@ -390,12 +563,8 @@ export function parseDocument(source: string): Document {
         issues.push(`${path}.${key} 不在首版编辑范围内`);
     if ("assertions" in data)
       inspectAssertions(data.assertions, `${path}.assertions`, issues);
-    for (const key of ["post_processors"])
-      if (
-        key in data &&
-        (!Array.isArray(data[key]) || (data[key] as Json[]).length > 0)
-      )
-        issues.push(`${path}.${key} 暂不支持`);
+    if (isJavaScriptProcessor(kind) && data.type !== "javascript")
+      issues.push(`${path}.type 仅支持 javascript 处理器`);
     if (
       kind === "jdbc_connection_configuration" &&
       data.driver !== undefined &&
@@ -411,11 +580,13 @@ export function parseDocument(source: string): Document {
         const rawType = object(v) ? v.type : undefined;
         const k =
           childKind ??
-          (rawType === "jdbc_connection"
-            ? "jdbc_connection_configuration"
-            : rawType === "jdbc_sampler"
-              ? "jdbc_request"
-              : rawType);
+          (key === "post_processors" && rawType === "javascript"
+            ? "javascript_postprocessor"
+            : rawType === "jdbc_connection"
+              ? "jdbc_connection_configuration"
+              : rawType === "jdbc_sampler"
+                ? "jdbc_request"
+                : rawType);
         if (
           typeof k !== "string" ||
           !own(labels, k) ||
@@ -443,6 +614,20 @@ export function parseDocument(source: string): Document {
       ];
     } else if (["group", "loop", "if", "while"].includes(kind))
       node.children = children(data.children);
+    else if (isSampler(kind)) {
+      node.children = [
+        ...("pre_processors" in data
+          ? children(
+              data.pre_processors,
+              "javascript_preprocessor",
+              "pre_processors",
+            )
+          : []),
+        ...("post_processors" in data
+          ? children(data.post_processors, undefined, "post_processors")
+          : []),
+      ];
+    }
     return node;
   };
   const root = visit(value, "plan", "plan");

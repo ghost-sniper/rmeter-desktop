@@ -1,6 +1,6 @@
 # rmeter desktop
 
-基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的固定提交 **fd6e5773cbeb5387afc0f803007707048d6e5663**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用及 JDBC 整表/按列结果变量）。
+基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的固定提交 **5028c0025556a772e2fb09a3337100e17d06a759**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用、JDBC 整表/按列结果变量、JavaScript 前后置处理器及五种 HTTP 提取器）。
 
 ## 开发与构建
 
@@ -10,6 +10,8 @@
 bun install --frozen-lockfile
 bun run tauri dev
 bun run tauri build
+# 仅生成可执行文件，不生成安装包
+bun run tauri build --no-bundle
 ```
 
 所有前端安装、开发、测试和构建均使用 Bun。Tauri 的 `beforeDevCommand` / `beforeBuildCommand` 自动通过 Bun 准备 JavaScript worker，然后启动 Vite / 构建前端。Rust 与 worker 使用 Cargo 编译。Windows 安装包位于 `src-tauri/target/release/bundle/`。
@@ -20,7 +22,7 @@ bun run tauri build
 
 `src-tauri/Cargo.toml` 使用 HTTPS Git URL、完整 `rev` 和 `default-features = false`；`Cargo.lock` 固定同一提交。项目 `.cargo/config.toml` 启用 Git CLI 拉取。
 
-先通过本机 Git Credential Manager 完成拥有仓库读取权限的 GitHub 账号认证，确认以下命令能够返回标签：
+先通过本机 Git Credential Manager 完成拥有仓库读取权限的 GitHub 账号认证，确认以下命令能够读取远程分支：
 
 ```powershell
 git ls-remote https://github.com/ghost-sniper/rmeter.git refs/heads/master
@@ -38,7 +40,7 @@ bun run prepare:worker --force
 
 脚本直接读取 `src-tauri/Cargo.toml` 中的 Git 仓库和 `rev`，从同一提交构建 `rmeter-component` 的 `rmeter-js-worker`，缓存到 `.cache/worker/<rev>/<target>/`，复制到 `src-tauri/binaries/rmeter-js-worker-<target>.exe`，由 Tauri `externalBin` 打包。缓存和二进制不提交版本控制。
 
-开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 校验与执行报错，纯 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。
+开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 和提取器的校验与执行报错，未使用这些组件的 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。分发无安装包版本时，须将 `rmeter-desktop.exe` 和同版本的 `rmeter-js-worker.exe` 放在同一目录。
 
 ## 使用
 
@@ -52,7 +54,7 @@ bun run prepare:worker --force
 
 ### 支持的组件
 
-线程组、While、Loop、IF、HTTP 采样器、HTTP 默认配置、JDBC 采样器、JavaScript 采样器、JDBC 连接配置。测试计划根节点可编辑变量和顶层全局 HTTP 默认配置。
+线程组、While、Loop、IF、HTTP 采样器、HTTP 默认配置、JDBC 采样器、JavaScript 采样器、JDBC 连接配置，以及采样器下的 JavaScript 前后置处理器和 HTTP 下的五种后置提取器。测试计划根节点可编辑变量和顶层全局 HTTP 默认配置。
 
 JDBC 使用 Rust 原生 PostgreSQL 驱动，不加载 JDBC JAR，默认要求 TLS。配置可置于计划根、线程组或控制器，同名池的覆盖和引用语义由核心库处理。密码字段会写入 JSON，也可使用 `password_env` 从宿主环境读取，两者互斥。
 
@@ -62,7 +64,7 @@ JavaScript 支持 `vars.get/put/remove/contains` 与 `ctx`，不提供 Node.js�
 
 使用 rmeter `version: 1` 的 UTF-8 JSON（读取支持 BOM），不支持 JMX。所有已支持的节点和三类断言均可设置名称，名称写入原生 `name` 字段并显示在节点树或断言列表中。Loop 和 HTTP 默认配置兼容旧脚本省略名称（或 `null`），缺省时显示组件类型名；显式字符串名称不能仅为空白。节点 ID、选中状态和展开状态不写入文件；不提供备注。已支持字段保留缺省/null 区别、请求头与参数重复键和顺序。
 
-含范围外节点、不支持的断言类型或非空后置处理器的文件显示原始内容并只读打开，禁止保存覆盖和运行。格式错误、未知字段以及可能无法无损编辑的数据同样只读保护。库支持的 JDBC 类型别名保存时规范为标准类型名。
+含范围外节点、不支持的断言或处理器类型的文件显示原始内容并只读打开，禁止保存覆盖和运行。格式错误、未知字段以及可能无法无损编辑的数据同样只读保护。库支持的 JDBC 类型别名保存时规范为标准类型名。
 
 可以保存尚未通过执行校验的配置；JSON/数值字段的输入格式错误须先修正。保存采用同目录临时文件与原子替换，失败不清除修改标记。
 
@@ -70,11 +72,11 @@ JavaScript 支持 `vars.get/put/remove/contains` 与 `ctx`，不提供 Node.js�
 
 在 HTTP 或 JDBC 采样器的节点配置底部添加响应断言，可命名、编辑、上下移动和删除。断言附属于采样器，按原生格式写入 `assertions` 数组，保持声明顺序；JavaScript 采样器不提供该配置。
 
-| 类型 | 可配置内容 |
-| --- | --- |
-| JSONPath（`type: "json"`） | JSONPath、等值 / 正则 / 存在 / 不存在、one / any / all 节点范围；期望值按 JSON 类型保存，包括 null |
-| XPath（`type: "xml"`） | XPath、文本等值 / 正则 / 存在 / 不存在、节点范围、命名空间前缀与 URI 映射 |
-| 正则表达式（`type: "regex"`） | 对完整 UTF-8 响应正文匹配 Rust regex，可反向要求不匹配 |
+| 类型                          | 可配置内容                                                                                         |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| JSONPath（`type: "json"`）    | JSONPath、等值 / 正则 / 存在 / 不存在、one / any / all 节点范围；期望值按 JSON 类型保存，包括 null |
+| XPath（`type: "xml"`）        | XPath、文本等值 / 正则 / 存在 / 不存在、节点范围、命名空间前缀与 URI 映射                          |
+| 正则表达式（`type: "regex"`） | 对完整 UTF-8 响应正文匹配 Rust regex，可反向要求不匹配                                             |
 
 `one`（缺省）要求恰好一个节点，`any` 要求至少一个匹配，`all` 要求非空且全部匹配；存在 / 不存在检查不使用节点范围。XPath 等值使用字符串比较，不自动去除空白。JSONPath 正则只匹配字符串节点。表达式及期望值为字面量，不展开 `${变量}`。兼容省略 `type` 的旧 JSONPath 断言，保存时保留该格式。
 
@@ -90,14 +92,78 @@ JavaScript 支持 `vars.get/put/remove/contains` 与 `ctx`，不提供 Node.js�
 
 禁用节点的执行配置可以暂未填写完整；重新启用后按正常规则校验。编辑器仍保护不支持的组件和字段，格式错误的表单草稿仍需修正后保存。运行期间及只读文件中不能修改启用状态。
 
+## JavaScript 前置与后置处理器
+
+右键点击 HTTP、JDBC 或 JavaScript 采样器，选择“前置处理器”或“后置处理器”添加。处理器支持名称、脚本、超时、变量容量、禁用、复制、删除、同阶段排序以及移动到其他采样器。运行期间锁定编辑。旧脚本中已有的 JavaScript `post_processors` 可直接打开编辑。
+
+执行顺序参考 [JMeter JSR223 PreProcessor](https://jmeter.apache.org/usermanual/component_reference.html#JSR223_PreProcessor) 和 [PostProcessor](https://jmeter.apache.org/usermanual/component_reference.html#JSR223_PostProcessor)：前置 → 采样器 → 后置 → 断言；每个阶段按树内顺序执行，处理器不额外产生采样结果。前置写入的变量供本次请求/SQL 模板展开使用，后置提取的变量可供后续组件使用，各虚拟用户隔离。
+
+| API                                                 | 用途                                                                                                                                                                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vars.get/put/set/remove/contains`                  | 读写字符串变量；`vars.getIteration()` 返回从 1 开始的线程组迭代次数                                                                                                                                                 |
+| `ctx.groupName/userIndex/iteration/lastSampleOk`    | 只读上下文；userIndex、iteration 从 0 开始，lastSampleOk 表示上一次采样最终状态                                                                                                                                     |
+| `ctx.getThreadNum()` / `ctx.getVariables()`         | 当前用户编号 / vars 对象                                                                                                                                                                                            |
+| `log.trace/debug/info/warn/error(message, ...args)` | 写入父采样结果中的“脚本日志”，支持 `{}` 占位符；`isDebugEnabled/isInfoEnabled()` 返回 true                                                                                                                          |
+| `Label` / `sampler.getName()`                       | 当前处理器名称 / 父采样器名称（只读）                                                                                                                                                                               |
+| `prev`（仅后置）                                    | 本次采样的只读快照：body、responseCode、responseMessage、label、elapsedMs、success、bodyUnavailableReason；提供 getResponseDataAsString/getResponseCode/getResponseMessage/getSampleLabel/getTime/isSuccessful 方法 |
+
+这些是 rmeter 的 JavaScript API，不包含 Java 对象、props、浏览器/Node.js、文件或异步 I/O。前置与独立采样器中不提供 prev；JavaScript 采样器的后置可读取本次执行状态，但响应体为 null。HTTP/JDBC 后置可读取完整响应，即使关闭响应保存；HTTP 默认最多 8 MiB，可在采样器表单调整；超限、非 UTF-8 或不完整响应的 body 为 null，并给出原因。JDBC 响应仍是 columns/rows/row_count/rows_affected 结构。
+
+```javascript
+// 前置：供采样器中的 ${item_id} 使用
+vars.put("item_id", "42");
+log.info("当前用户 {}", ctx.getThreadNum());
+```
+
+```javascript
+// HTTP 后置：提取业务字段
+if (!prev.isSuccessful() || prev.body === null) throw new Error("响应不可用");
+vars.put("item_id", String(JSON.parse(prev.getResponseDataAsString()).id));
+log.info("提取到 ID {}", vars.get("item_id"));
+```
+
+处理器异常/超时使父采样失败并应用线程组错误策略；失败处理器的变量修改回滚，之前成功处理器的修改保留，同阶段后续处理器跳过。前置失败时不执行采样器、后置或断言。父采样器禁用时全部处理器跳过；处理器可单独禁用。停止运行会回收 worker。正常采样耗时不包括前后置；前置失败时记录失败阶段耗时。
+
+日志每条最多 4096 UTF-8 字节，每次采样累计最多 100 条 / 64 KiB，超限明确显示截断；日志与响应预览共用 16 MiB 缓存。脚本异常保留已返回日志；worker 被取消或硬超时终止时，尚未返回的日志丢弃。后置现在先于断言执行，旧脚本不可再用 prev.success 判断断言是否通过。
+
+`examples/javascript-processors.json` 使用本地 Mock 和指定 ipds_dev 的只读 SELECT，验证三类采样器的前后置、禁用、变量传递和日志。2 用户 × 2 迭代，共 12 次成功采样、28 条日志；通过 `bun run test:integration` 一起执行。数据库密码仍从环境变量读取。
+
+## HTTP 后置提取器
+
+HTTP 采样器的“后置处理器”菜单支持 JSONPath、XPath、JMESPath、正则表达式、XPath2 五种提取器。它们与 JavaScript 后置处理器混合排列，按树内顺序在响应完成后、断言前执行，输出变量可供后续处理器和采样器使用。支持命名、禁用、复制、删除、排序及移动到其他 HTTP 采样器；不能放到前置、线程组、控制器、JDBC 或 JavaScript 采样器下。
+
+| 类型       | 表达式示例 / 选项                                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| JSONPath   | `$.items[*].id`；匹配节点中的字符串原样保存，其余保存为 JSON 文本，包括 null                                                                            |
+| XPath      | XPath 1.0：`//ns:item/@id`，namespaces 配置 `{"ns":"urn:example"}`；节点输出字符串值，也支持标量                                                        |
+| JMESPath   | `items[?active].id`；顶层数组按元素匹配，顶层 null 表示无匹配                                                                                           |
+| 正则表达式 | `id=(\d+)`，结果模板 `$1$`；`$0$` 为整体匹配，可组合为 `ID=$1$`；使用 Rust regex，不支持环视或回溯引用                                                  |
+| XPath2     | 使用 Xee XPath 3.1 引擎执行 XPath 2.0 语法，如 `for $x in //item return upper-case(string($x))`；支持序列、函数和命名空间，空前缀可指定默认元素命名空间 |
+
+共同配置：变量名、提取表达式、匹配序号（默认 1）、默认值、提取超时（默认 1000 ms）、最大匹配数量（默认 1000）、变量容量（默认 1 MiB，含当前用户已有变量）。变量规则参考 [JMeter 提取器](https://jmeter.apache.org/usermanual/component_reference.html#JSON_Extractor)：
+
+- `1`、`2`……取第 N 项，`0` 随机取一项，结果写入 `${变量名}`。
+- `-1` 保存全部结果，使用 `${变量名_1}`、`${变量名_2}`……；`${变量名_matchNr}` 始终记录本次匹配总数。
+- 无匹配或第 N 项越界时使用默认值。默认值缺省/null 表示不设置基础变量，显式空字符串表示空默认值；全部匹配模式下基础变量维持默认值。
+- 正则还保存 `${变量名_g0}`（整体）、`${变量名_g1}`（第 1 组）等及 `${变量名_g}`（组数）；全部模式对应 `${变量名_1_g1}` 等。
+- 每次执行清理本组件的旧结果及编号/分组值，避免上次结果残留；禁用组件不执行也不改动变量。
+
+输入为完整 UTF-8 响应正文，独立于结果预览保存，受 HTTP 的“完整响应上限”限制（默认 8 MiB）。不支持响应头/子采样、HTML 容错或 XML DTD/外部实体。XPath2 不注册外部文档、文件或进程环境变量。格式错误、正文不可用、超时、超过匹配数/容量限制会使父采样失败，停止后续后置处理器并遵循线程组错误策略；无匹配本身正常使用默认值。提取成功会在父采样日志中记录匹配数，不额外增加采样数量。
+
+五种提取器均由核心库通过同版本 worker 执行，使用隔离进程的内存限制、超时与取消回收。使用提取器需要随程序分发的 `rmeter-js-worker.exe`；不使用 JavaScript/提取器的 HTTP/JDBC 功能不受 worker 缺失影响。
+
+原生 JSON 保存在 HTTP 的 `post_processors` 数组中，type 分别为 `jsonpath_extractor`、`xpath_extractor`、`jmespath_extractor`、`regex_extractor`、`xpath2_extractor`；五种类型均使用 `expression` 字段。未知组件或无法无损编辑的数据仍只读保护。
+
+`examples/http-extractors.json` 对接本地 Mock Studio，验证五种提取器、JavaScript 混排、禁用草稿、变量传递和后续 HTTP 请求。2 用户 × 2 迭代，共 12 次成功采样、20 次提取和 4 次 JavaScript 检查；已纳入 `bun run test:integration`。
+
 ## JDBC 结果变量
 
 参考 [JMeter JDBC Request](https://jmeter.apache.org/usermanual/component_reference.html#JDBC_Request)，提供两种可独立或同时使用的方式：
 
-| 配置 | 保存内容与访问方法 |
-| --- | --- |
+| 配置                   | 保存内容与访问方法                                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | 整表结果变量：`result` | `result` 为 JSONArray 字符串，例如 `[{"id":1,"name":"张三"}]`；`${result_#}` 为行数；JavaScript 使用 `JSON.parse(vars.get("result"))[0].id` |
-| 按列变量名：`id,,name` | 按查询列顺序映射，跳过第 2 列；`${id_1}`、`${id_2}` 读取第 1 列各行，`${name_1}` 读取第 3 列第 1 行；`${id_#}`、`${name_#}` 为行数 |
+| 按列变量名：`id,,name` | 按查询列顺序映射，跳过第 2 列；`${id_1}`、`${id_2}` 读取第 1 列各行，`${name_1}` 读取第 3 列第 1 行；`${id_#}`、`${name_#}` 为行数          |
 
 按列名称在原生 JSON 中保存为 `"variable_names": ["id", "", "name"]`，不足的名称跳过后续列，多余名称只有行数。行号从 1 开始。SQL NULL 在整表 JSON 中保留为 null，在按列模式下不设置对应单元格变量；文本不额外加引号，其他值序列化为字符串。两种方式的输出名称须避免冲突。
 
@@ -111,15 +177,15 @@ JavaScript 支持 `vars.get/put/remove/contains` 与 `ctx`，不提供 Node.js�
 
 已核对所固定核心提交的 `src/script.rs` 与 `rmeter-component/src/component.rs`：HTTP 默认配置是独立 `http_defaults` 组件，JDBC 连接配置是独立 `jdbc_connection_configuration` 组件。二者均不产生采样，配置合并、引用及作用域由库编译器处理。
 
-| 配置 | 可放置位置 | 生效规则 |
-| --- | --- | --- |
-| HTTP 默认配置 | 线程组、Loop、IF、While 下 | 影响同层及其后代 HTTP 采样器；同层配置按树顺序合并，后者覆盖前者，内层覆盖外层；采样器显式设置优先 |
-| 全局 HTTP 默认配置 | 测试计划详情中的全局配置 | 写入根 `defaults`，作为所有线程组的最外层默认值 |
-| JDBC 连接配置 | 测试计划、线程组、Loop、IF、While 下 | 同层及后代 JDBC 采样器按连接变量名引用；子作用域同名覆盖，同层重名校验报错 |
+| 配置               | 可放置位置                           | 生效规则                                                                                           |
+| ------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| HTTP 默认配置      | 线程组、Loop、IF、While 下           | 影响同层及其后代 HTTP 采样器；同层配置按树顺序合并，后者覆盖前者，内层覆盖外层；采样器显式设置优先 |
+| 全局 HTTP 默认配置 | 测试计划详情中的全局配置             | 写入根 `defaults`，作为所有线程组的最外层默认值                                                    |
+| JDBC 连接配置      | 测试计划、线程组、Loop、IF、While 下 | 同层及后代 JDBC 采样器按连接变量名引用；子作用域同名覆盖，同层重名校验报错                         |
 
 配置作用于整个所在层级，放在采样器之后也生效。内层覆盖不会影响外层兄弟节点或其他线程组。计划下的 JDBC 配置保存为根 `jdbc_connections` 数组，条目不带 `type`；其他位置保存为带 `type` 的组件。
 
-按原生结构，HTTP/JDBC 采样器仍为叶节点，不能添加配置子节点；核心 JSON 格式不接受 HTTP 采样器的 `children`。HTTP 默认配置包含 `type`、`settings` 和可选的 `name`，名称仅用于编辑器展示，不影响配置作用域。新增 HTTP 采样器不再预填完整 URL，以便继承作用域中的地址；显式填写完整 URL 时，其地址优先于默认配置中的协议、主机、端口和路径。
+按原生结构，HTTP/JDBC/JavaScript 采样器可添加前置、后置处理器子节点，不能添加配置子节点；处理器在原生 JSON 中保存为 `pre_processors` / `post_processors`，不使用 `children`。HTTP 默认配置包含 `type`、`settings` 和可选的 `name`，名称仅用于编辑器展示，不影响配置作用域。新增 HTTP 采样器不再预填完整 URL，以便继承作用域中的地址；显式填写完整 URL 时，其地址优先于默认配置中的协议、主机、端口和路径。
 
 采样器显式设置的字段使用自身值，未设置字段继续继承；请求头与查询参数只要设置数组就整组替换默认列表，保留重复键和顺序。空数组 `[]` 清除对应继承内容，缺省或 `null` 继承默认列表。界面提供“清空并停止继承”和“恢复缺省”，并显示当前状态。默认配置节点之间仍按键合并，内层或同层后置配置覆盖同名项。已有脚本中非空采样器列表不再自动补入默认列表的其他项；需要这些项时应显式添加到采样器，或恢复缺省以继承整个默认列表。
 
@@ -170,22 +236,22 @@ try {
 
 若在桌面运行此脚本，需从已设置该环境变量的终端启动桌面程序，让宿主继承变量。独立启动的旧进程不会读取后来设置的环境变量。
 
-验收入口先读取只读 mock 目录快照，准备同 tag 的 JavaScript worker，再通过桌面实际使用的任务适配器执行。测试默认忽略，普通 `cargo test` 不访问此远程数据库。目录快照及本次采样响应保存在已忽略的 `.cache/integration/`；密码不写入脚本、报告或 Git。
+验收入口先读取只读 mock 目录快照，准备同一固定提交的 JavaScript worker，再通过桌面实际使用的任务适配器执行。测试默认忽略，普通 `cargo test` 不访问此远程数据库。目录快照及本次采样响应保存在已忽略的 `.cache/integration/`；密码不写入脚本、报告或 Git。
 
 2026-11-11 实测通过（catalog generation 1）：
 
-| 验收项 | 结果 |
-| --- | --- |
-| 线程组 | 2 个用户，各 1 次迭代；每用户独立完成 28 次采样 |
-| JDBC 配置 / 采样器 | 连接池配置生效；6 次参数化 SELECT，验证数据库、用户和返回值 |
-| JavaScript | 6 次采样；验证 JDBC 结果，写入 HTTP 路径变量及 While 计数变量 |
-| IF | 真分支执行，While 结束后假分支跳过 |
-| Loop | 每用户重复 2 次完整 mock 请求集合 |
-| While | 每用户执行 2 轮参数查询和变量递增，然后退出 |
-| HTTP | 44 次请求；全部 10 个路由、11 条规则的状态码和正文逐一匹配 |
-| 原生响应断言 | 96 项通过，覆盖 JSONPath、XPath、正文正则，以及 JDBC 查询结果 |
-| 任务生命周期 | 单一正常终态，runId 一致，结束后释放活动任务 |
-| 合计 | **56 成功 / 0 失败** |
+| 验收项             | 结果                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| 线程组             | 2 个用户，各 1 次迭代；每用户独立完成 28 次采样               |
+| JDBC 配置 / 采样器 | 连接池配置生效；6 次参数化 SELECT，验证数据库、用户和返回值   |
+| JavaScript         | 6 次采样；验证 JDBC 结果，写入 HTTP 路径变量及 While 计数变量 |
+| IF                 | 真分支执行，While 结束后假分支跳过                            |
+| Loop               | 每用户重复 2 次完整 mock 请求集合                             |
+| While              | 每用户执行 2 轮参数查询和变量递增，然后退出                   |
+| HTTP               | 44 次请求；全部 10 个路由、11 条规则的状态码和正文逐一匹配    |
+| 原生响应断言       | 96 项通过，覆盖 JSONPath、XPath、正文正则，以及 JDBC 查询结果 |
+| 任务生命周期       | 单一正常终态，runId 一致，结束后释放活动任务                  |
+| 合计               | **56 成功 / 0 失败**                                          |
 
 HTTP 覆盖 `/hello/test` 模板、`/order` 成功及 UnionPay 分支、`/query/42` XML 匹配，以及 `/examples/` 下的 JSONPath、XPath、query、items/42、regex、JSON/XML 模板。UnionPay 规则的 HTTP 状态为 200、业务码为 400，脚本明确断言该预期业务拒绝。HTTP 每次执行 2 项原生断言，JDBC 初始化每次 2 项、While 查询每次 1 项，共 96 项；验收代码同时核对采样正文与断言结果。示例不使用后置处理器。前端测试另行验证此脚本包含全部组件且可无损打开保存。
 

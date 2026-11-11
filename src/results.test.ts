@@ -56,3 +56,35 @@ it("releases oldest response payloads at 16 MiB without losing metadata", () => 
     ),
   ).toBeLessThanOrEqual(16 * 1024 * 1024);
 });
+
+it("counts script logs against the shared preview cache and marks released logs", () => {
+  const message: RunMessage = {
+    run_id: "logs",
+    status: "completed",
+    error: null,
+    summary: { samples: 300, passed: 300, failed: 0, finished: true },
+    events: Array.from({ length: 300 }, () => ({
+      body_truncated: false,
+      event: {
+        ...sample,
+        script_logs: {
+          entries: [
+            {
+              level: "info",
+              source: "pre",
+              message: "x".repeat(64 * 1024 - 7),
+            },
+          ],
+          truncated: false,
+        },
+      },
+    })),
+  };
+  const state = receiveResults(emptyResults(), message);
+  expect(state.rows[0].sample.script_logs).toEqual({
+    entries: [],
+    truncated: true,
+  });
+  expect(state.rows[299].sample.script_logs?.entries).toHaveLength(1);
+  expect(state.summary.samples).toBe(300);
+});

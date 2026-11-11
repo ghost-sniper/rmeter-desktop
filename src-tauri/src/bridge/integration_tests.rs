@@ -272,3 +272,85 @@ async fn mock_jdbc_all_components() {
         "All eight components passed: 2 users; 44 HTTP, 6 JDBC, 6 JavaScript samples; all 11 mock rules verified; 96 native assertions passed."
     );
 }
+
+#[tokio::test]
+#[ignore = "requires Mock Studio on :9080 and RMETER_INTEGRATION_DB_PASSWORD for ipds_dev"]
+async fn javascript_processors_on_all_samplers() {
+    configure_worker().unwrap();
+    let source =
+        serde_json::from_str(include_str!("../../../examples/javascript-processors.json")).unwrap();
+    let (status, summary, events) = super::tests::collect(source).await;
+    assert_eq!(status, "completed");
+    assert_eq!(
+        summary.samples, 12,
+        "processors must not emit extra samples"
+    );
+    let mut log_count = 0;
+    for preview in events {
+        if let ReportEvent::SampleCompleted {
+            label,
+            success,
+            response_message,
+            response_body,
+            script_logs,
+            ..
+        } = preview.event
+        {
+            assert!(success, "{label}: {response_message:?}");
+            assert!(
+                response_body.is_none(),
+                "postprocessors must work without saved previews"
+            );
+            assert!(!script_logs.truncated);
+            assert_eq!(
+                script_logs.entries.len(),
+                if label.starts_with("JavaScript") {
+                    3
+                } else {
+                    2
+                }
+            );
+            log_count += script_logs.entries.len();
+        }
+    }
+    assert_eq!(summary.passed, 12);
+    assert_eq!(log_count, 28);
+    println!(
+        "JavaScript pre/post processors passed on HTTP, JDBC and JavaScript: 12 samples, 28 log entries, 2 users x 2 iterations."
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires Mock Studio on 127.0.0.1:9080"]
+async fn five_http_extractors_feed_followup_requests() {
+    configure_worker().unwrap();
+    let source =
+        serde_json::from_str(include_str!("../../../examples/http-extractors.json")).unwrap();
+    let (status, summary, events) = super::tests::collect(source).await;
+    assert_eq!(status, "completed");
+    assert_eq!(summary.samples, 12);
+    let mut logs = 0;
+    for preview in events {
+        if let ReportEvent::SampleCompleted {
+            label,
+            success,
+            response_message,
+            response_body,
+            script_logs,
+            ..
+        } = preview.event
+        {
+            assert!(success, "{label}: {response_message:?}");
+            assert!(
+                response_body.is_none(),
+                "extraction must not require preview storage"
+            );
+            logs += script_logs.entries.len();
+        }
+    }
+    assert_eq!(summary.passed, 12);
+    assert_eq!(logs, 24);
+    println!(
+        "Five HTTP extractors passed: 12 samples, 20 extractions, 4 JavaScript checks, 2 users x 2 iterations."
+    );
+}

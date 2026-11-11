@@ -1,3 +1,6 @@
+import extractorExample from "../examples/http-extractors.json";
+import { extractorKinds, isPostProcessor } from "./model";
+import processors from "../examples/javascript-processors.json";
 import { describe, expect, it } from "vitest";
 import allComponents from "../examples/mock-jdbc-all-components.json";
 import jdbcScopes from "../examples/jdbc-scopes.json";
@@ -235,7 +238,7 @@ describe("native script model", () => {
       expect(doc.source).toBe(source);
     },
   );
-  it("protects unsupported assertions and post processors, allows empty arrays", () => {
+  it("protects unsupported assertions and processor types, allows supported arrays", () => {
     const make = (assertions: unknown[], post_processors: unknown[]) =>
       parseDocument(
         JSON.stringify({
@@ -258,7 +261,7 @@ describe("native script model", () => {
       );
     expect(make([], []).issues).toEqual([]);
     expect(make([{ type: "json" }], []).issues.join()).toContain("assertions");
-    expect(make([], [{ type: "javascript" }]).issues.join()).toContain(
+    expect(make([], [{ type: "beanshell" }]).issues.join()).toContain(
       "post_processors",
     );
   });
@@ -369,4 +372,161 @@ describe("native script model", () => {
     expect(allowed("plan", "jdbc_connection_configuration")).toBe(true);
     expect(allowed("http_request", "loop")).toBe(false);
   });
+});
+
+it.each(["http_request", "jdbc_request", "javascript"] as const)(
+  "round trips ordered processors under %s without UI types in native JSON",
+  (kind) => {
+    const parent = createNode(kind);
+    const pre = createNode("javascript_preprocessor");
+    const post = createNode("javascript_postprocessor");
+    pre.data.enabled = false;
+    pre.data.script = "vars.put('value','before');";
+    post.data.script = "log.info(prev.body);";
+    parent.children = [pre, cloneNode(pre), post];
+    const doc = newDocument();
+    doc.root.children[0].children = [parent];
+    const native = JSON.parse(stringify(doc.root));
+    const saved = native.groups[0].children[0];
+    expect(saved.children).toBeUndefined();
+    expect(saved.pre_processors.map((p: { type: string }) => p.type)).toEqual([
+      "javascript",
+      "javascript",
+    ]);
+    expect(saved.pre_processors[0].enabled).toBe(false);
+    const parsed = parseDocument(JSON.stringify(native));
+    expect(parsed.issues).toEqual([]);
+    expect(serializeNode(parsed.root)).toEqual(native);
+    const children = parsed.root.children[0].children[0].children;
+    expect(children.map((n) => n.kind)).toEqual([
+      "javascript_preprocessor",
+      "javascript_preprocessor",
+      "javascript_postprocessor",
+    ]);
+    expect(allowed(kind, "javascript_preprocessor")).toBe(true);
+    expect(allowed("group", "javascript_preprocessor")).toBe(false);
+    expect(allowed("javascript_preprocessor", "javascript_postprocessor")).toBe(
+      false,
+    );
+    const moved = moveNode(
+      parsed.root,
+      children[0].id,
+      parsed.root.children[0].id,
+    );
+    expect(moved).toBe(parsed.root);
+    const reordered = reorderNode(parsed.root, children[1].id, -1);
+    expect(reordered.children[0].children[0].children[0].id).toBe(
+      children[1].id,
+    );
+  },
+);
+
+it("protects malformed or nested processor arrays and preserves absent versus empty arrays", () => {
+  for (const value of [
+    null,
+    {},
+    [{ type: "beanshell" }],
+    [{ type: "javascript", name: "nested", script: "", pre_processors: [] }],
+  ]) {
+    const root = newDocument().root;
+    const sampler = createNode("javascript");
+    const source = serializeNode(root);
+    (source.groups as any[])[0].children = [
+      { ...sampler.data, pre_processors: value },
+    ];
+    expect(parseDocument(JSON.stringify(source)).issues.length).toBeGreaterThan(
+      0,
+    );
+  }
+  const root = newDocument().root;
+  const sampler = createNode("http_request");
+  sampler.data.post_processors = [];
+  root.children[0].children = [sampler];
+  const saved = serializeNode(parseDocument(stringify(root)).root);
+  const data = (saved.groups as any[])[0].children[0];
+  expect(data.post_processors).toEqual([]);
+  expect(data).not.toHaveProperty("pre_processors");
+});
+
+it("opens and saves the processor integration example without loss", () => {
+  const doc = parseDocument(JSON.stringify(processors));
+  expect(doc.issues).toEqual([]);
+  expect(serializeNode(doc.root)).toEqual(processors);
+});
+
+it("preserves mixed postprocessor order and permits moving extractors only between HTTP samplers", () => {
+  const root = newDocument().root;
+  const http = createNode("http_request"),
+    other = createNode("http_request"),
+    jdbc = createNode("jdbc_request");
+  root.children[0].children = [http, other, jdbc];
+  const pre = createNode("javascript_preprocessor"),
+    js = createNode("javascript_postprocessor");
+  http.children = [pre, js, ...extractorKinds.map(createNode)];
+  http.children[2].data.enabled = false;
+  http.children[3].data.namespaces = { n: "urn:test" };
+  http.children[4].data.default_value = null;
+  const saved = serializeNode(root);
+  const parsed = parseDocument(JSON.stringify(saved));
+  expect(parsed.issues).toEqual([]);
+  expect(serializeNode(parsed.root)).toEqual(saved);
+  const reordered = reorderNode(root, http.children[2].id, -1);
+  expect(reordered.children[0].children[0].children[1].kind).toBe(
+    "jsonpath_extractor",
+  );
+  expect(reorderNode(root, js.id, -1)).toBe(root);
+  const moved = moveNode(root, http.children[2].id, other.id);
+  expect(moved.children[0].children[1].children[0].kind).toBe(
+    "jsonpath_extractor",
+  );
+  expect(moveNode(root, http.children[2].id, jdbc.id)).toBe(root);
+  for (const kind of extractorKinds) {
+    expect(allowed("http_request", kind)).toBe(true);
+    expect(allowed("javascript", kind)).toBe(false);
+    expect(allowed("group", kind)).toBe(false);
+    expect(isPostProcessor(kind)).toBe(true);
+  }
+});
+it("protects malformed extractor data and illegal sampler placement", () => {
+  for (const patch of [
+    { namespaces: [] },
+    { namespaces: { x: 3 } },
+    { match_number: "-1" },
+    { default_value: 3 },
+    { expression: null },
+    { unknown: true },
+  ]) {
+    const root = newDocument().root,
+      http = createNode("http_request"),
+      extractor = createNode("xpath_extractor");
+    Object.assign(extractor.data, patch);
+    http.children = [extractor];
+    root.children[0].children = [http];
+    expect(parseDocument(stringify(root)).issues.length).toBeGreaterThan(0);
+  }
+  for (const kind of ["jdbc_request", "javascript"] as const) {
+    const root = newDocument().root,
+      sampler = createNode(kind);
+    sampler.data.post_processors = [
+      {
+        type: "jsonpath_extractor",
+        name: "illegal",
+        variable_name: "v",
+        expression: "$.id",
+      },
+    ];
+    root.children[0].children = [sampler];
+    const source = serializeNode(root);
+    (source.groups as any[])[0].children[0].post_processors =
+      sampler.data.post_processors;
+    expect(parseDocument(JSON.stringify(source)).issues.length).toBeGreaterThan(
+      0,
+    );
+  }
+});
+
+it("opens and saves all HTTP extractors in the integration example without loss", () => {
+  const doc = parseDocument(JSON.stringify(extractorExample));
+  expect(doc.issues).toEqual([]);
+  expect(serializeNode(doc.root)).toEqual(extractorExample);
 });

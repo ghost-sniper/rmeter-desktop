@@ -24,6 +24,10 @@ export interface Sample {
   bytes_received: number;
   response_body: number[] | null;
   assertions: AssertionResult[];
+  script_logs?: {
+    entries: { level: string; source: string; message: string }[];
+    truncated: boolean;
+  };
 }
 export type ReportEvent =
   Sample | { type: "started" | "finished"; at_ms: number };
@@ -68,12 +72,26 @@ export function receiveResults(state: Results, message: RunMessage): Results {
   rows = rows
     .reverse()
     .map((row) => {
-      const size = row.sample.response_body?.length ?? 0;
+      const logSize =
+        row.sample.script_logs?.entries.reduce(
+          (sum, entry) =>
+            sum +
+            new TextEncoder().encode(entry.level + entry.source + entry.message)
+              .length,
+          0,
+        ) ?? 0;
+      const size = (row.sample.response_body?.length ?? 0) + logSize;
       bytes += size;
       return bytes > 16 * 1024 * 1024 && size
         ? {
             ...row,
-            sample: { ...row.sample, response_body: null },
+            sample: {
+              ...row.sample,
+              response_body: null,
+              script_logs: row.sample.script_logs
+                ? { entries: [], truncated: true }
+                : undefined,
+            },
             truncated: true,
           }
         : row;

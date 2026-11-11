@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "name": "HTTP 五种提取器联动",
+  "defaults": {
+    "use_system_proxy": false,
+    "save_response_body": false,
+    "request_timeout_ms": 5000
+  },
+  "groups": [
+    {
+      "name": "提取器验证",
+      "users": 2,
+      "iterations": 2,
+      "max_duration_ms": 30000,
+      "on_error": "stop_user",
+      "children": [
+        {
+          "type": "http_request",
+          "name": "提取 JSON 与正则",
+          "url": "http://127.0.0.1:9080/examples/items/42",
+          "post_processors": [
+            {
+              "type": "jsonpath_extractor",
+              "name": "JSONPath 商品 ID",
+              "variable_name": "json_id",
+              "expression": "$.id",
+              "match_number": 1,
+              "timeout_ms": 1000
+            },
+            {
+              "type": "jmespath_extractor",
+              "name": "JMESPath 商品 ID",
+              "variable_name": "jmes_id",
+              "expression": "to_string(id)",
+              "match_number": 1,
+              "timeout_ms": 1000
+            },
+            {
+              "type": "regex_extractor",
+              "name": "正则商品 ID",
+              "variable_name": "regex_id",
+              "expression": "\"id\"\\s*:\\s*(\\d+)",
+              "match_number": 1,
+              "timeout_ms": 1000,
+              "template": "$1$"
+            },
+            {
+              "type": "xpath2_extractor",
+              "name": "禁用的草稿",
+              "enabled": false,
+              "variable_name": "unused",
+              "expression": "invalid (((("
+            }
+          ]
+        },
+        {
+          "type": "http_request",
+          "name": "提取 XPath 与 XPath2",
+          "method": "POST",
+          "url": "http://127.0.0.1:9080/query/${json_id}",
+          "settings": {
+            "headers": [["Content-Type", "application/xml"]]
+          },
+          "body": {
+            "type": "text",
+            "value": "<information>\n<id>12</id>\n</information>"
+          },
+          "post_processors": [
+            {
+              "type": "xpath_extractor",
+              "name": "XPath ID",
+              "variable_name": "xml_id",
+              "expression": "/information/id/text()",
+              "match_number": 1,
+              "timeout_ms": 1000
+            },
+            {
+              "type": "xpath2_extractor",
+              "name": "XPath2 格式化 ID",
+              "variable_name": "xml2_id",
+              "expression": "for $i in /information/id return concat(upper-case('id'), '-', string($i))",
+              "match_number": 1,
+              "timeout_ms": 1000
+            }
+          ]
+        },
+        {
+          "type": "http_request",
+          "name": "使用全部提取变量",
+          "url": "http://127.0.0.1:9080/examples/items/${json_id}",
+          "settings": {
+            "query": [
+              ["xml", "${xml_id}"],
+              ["xml2", "${xml2_id}"]
+            ]
+          },
+          "post_processors": [
+            {
+              "type": "javascript",
+              "name": "检查提取链",
+              "timeout_ms": 2000,
+              "script": "if (!prev.success || JSON.parse(prev.body).id !== 42) throw new Error('follow-up request failed'); for (const key of ['json_id','jmes_id','regex_id']) if (vars.get(key) !== '42' || vars.get(key+'_matchNr') !== '1') throw new Error(key); if(vars.get('xml_id') !== '12' || vars.get('xml2_id') !== 'ID-12' || vars.get('regex_id_g1') !== '42') throw new Error('XML or regex group mismatch'); log.info('five extractors verified for user {} iteration {}', ctx.userIndex, ctx.iteration);"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

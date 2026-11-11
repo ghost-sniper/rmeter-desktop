@@ -1,3 +1,4 @@
+import { extractorKinds, labels } from "./model";
 import {
   act,
   fireEvent,
@@ -224,7 +225,12 @@ it("adds HTTP defaults as a group child and saves them as a native configuration
     target: { value: "http_request" },
   });
   expect(screen.getByLabelText("完整 URL")).toHaveValue("");
-  expect(screen.getByLabelText(/添加到/)).toBeDisabled();
+  expect(screen.getByLabelText(/添加到/)).toBeEnabled();
+  expect(
+    within(screen.getByLabelText(/添加到/)).queryByRole("option", {
+      name: "HTTP 默认配置",
+    }),
+  ).not.toBeInTheDocument();
   fireEvent.click(screen.getByTitle("保存 (Ctrl+S)"));
   await waitFor(() =>
     expect(mock.invoke).toHaveBeenCalledWith("write_script", expect.anything()),
@@ -330,6 +336,16 @@ it("shows assertion failure details even when HTTP returned 200", async () => {
             body_truncated: false,
             event: {
               type: "sample_completed",
+              script_logs: {
+                entries: [
+                  {
+                    level: "info",
+                    source: "提取响应",
+                    message: "token 已提取",
+                  },
+                ],
+                truncated: true,
+              },
               label: "业务响应",
               group_name: "g",
               user_index: 0,
@@ -361,6 +377,12 @@ it("shows assertion failure details even when HTTP returned 200", async () => {
   fireEvent.click(screen.getByRole("button", { name: /▶\s*运行/ }));
   fireEvent.click(await screen.findByRole("row", { name: /业务响应/ }));
   expect(screen.getByText("1/2 通过")).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "脚本日志" })).toHaveTextContent(
+    "[INFO] 提取响应: token 已提取",
+  );
+  expect(screen.getByRole("region", { name: "脚本日志" })).toHaveTextContent(
+    "日志已截断",
+  );
   const details = within(screen.getByRole("region", { name: "断言结果" }));
   expect(details.getByText("× 失败 · JSON 业务码")).toBeInTheDocument();
   expect(details.getByText("✓ 通过 · 正文正则")).toBeInTheDocument();
@@ -535,3 +557,157 @@ it("can stop, save dirty changes, and close in one flow", async () => {
     source: expect.stringContaining("关闭前保存"),
   });
 });
+
+it.each(["http_request", "jdbc_request", "javascript"] as const)(
+  "edits and reopens pre/post processor children on %s",
+  async (kind) => {
+    mock.save.mockResolvedValue("C:/processors.json");
+    const view = render(<App />);
+    fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));
+    fireEvent.change(screen.getByLabelText(/添加到/), {
+      target: { value: kind },
+    });
+    fireEvent.change(screen.getByLabelText(/^名称/), {
+      target: { value: "父采样器" },
+    });
+    for (const [category, label] of [
+      ["后置处理器", "JavaScript 后置处理器"],
+      ["前置处理器", "JavaScript 前置处理器"],
+    ]) {
+      fireEvent.contextMenu(screen.getByRole("treeitem", { name: /父采样器/ }));
+      fireEvent.mouseEnter(screen.getByRole("menuitem", { name: category }));
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: new RegExp(label) }),
+      );
+      fireEvent.change(screen.getByLabelText(/^JavaScript/), {
+        target: { value: `log.info('${category}');` },
+      });
+      fireEvent.click(screen.getByRole("checkbox", { name: "启用组件" }));
+    }
+    fireEvent.click(screen.getByRole("treeitem", { name: /父采样器/ }));
+    fireEvent.click(
+      screen.getByRole("treeitem", { name: /JavaScript 前置处理器/ }),
+    );
+    expect(screen.getByLabelText(/^JavaScript/)).toHaveValue(
+      "log.info('前置处理器');",
+    );
+    fireEvent.click(screen.getByTitle("保存 (Ctrl+S)"));
+    await waitFor(() =>
+      expect(mock.invoke).toHaveBeenCalledWith(
+        "write_script",
+        expect.anything(),
+      ),
+    );
+    const source = mock.invoke.mock.calls.find(
+      ([cmd]) => cmd === "write_script",
+    )![1].source;
+    const parent = JSON.parse(source).groups[0].children[0];
+    expect(parent.pre_processors[0]).toMatchObject({
+      type: "javascript",
+      enabled: false,
+      script: "log.info('前置处理器');",
+    });
+    expect(parent.post_processors[0].enabled).toBe(false);
+    expect(parent.children).toBeUndefined();
+    view.unmount();
+    mock.open.mockResolvedValue("C:/processors.json");
+    mock.invoke.mockImplementation(async (cmd) =>
+      cmd === "read_script" ? source : undefined,
+    );
+    render(<App />);
+    fireEvent.click(screen.getByTitle("打开 (Ctrl+O)"));
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: /JavaScript 后置处理器/ }),
+    );
+    expect(screen.getByLabelText(/^JavaScript/)).toHaveValue(
+      "log.info('后置处理器');",
+    );
+    expect(screen.queryByText("此脚本以只读模式打开")).not.toBeInTheDocument();
+  },
+);
+
+it.each(extractorKinds)(
+  "adds %s from HTTP postprocessor menu and persists it",
+  async (kind) => {
+    mock.save.mockResolvedValue("C:/extractors.json");
+    const view = render(<App />);
+    fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));
+    fireEvent.change(screen.getByLabelText(/添加到/), {
+      target: { value: "http_request" },
+    });
+    fireEvent.contextMenu(
+      screen.getByRole("treeitem", { name: /HTTP 采样器/ }),
+    );
+    fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "后置处理器" }));
+    for (const k of extractorKinds)
+      expect(
+        screen.getByRole("menuitem", { name: new RegExp(labels[k]) }),
+      ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: new RegExp(labels[kind]) }),
+    );
+    fireEvent.change(screen.getByLabelText(/^变量名/), {
+      target: { value: "token" },
+    });
+    fireEvent.change(screen.getByLabelText(/^提取表达式/), {
+      target: { value: "custom expression" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "启用组件" }));
+    fireEvent.click(screen.getByTitle("保存 (Ctrl+S)"));
+    await waitFor(() =>
+      expect(mock.invoke).toHaveBeenCalledWith(
+        "write_script",
+        expect.anything(),
+      ),
+    );
+    const source = mock.invoke.mock.calls.find(
+      ([cmd]) => cmd === "write_script",
+    )![1].source;
+    const saved = JSON.parse(source).groups[0].children[0].post_processors[0];
+    expect(saved).toMatchObject({
+      type: kind,
+      enabled: false,
+      variable_name: "token",
+      expression: "custom expression",
+    });
+    expect(saved).not.toHaveProperty("script");
+    view.unmount();
+    mock.open.mockResolvedValue("C:/extractors.json");
+    mock.invoke.mockImplementation(async (cmd) =>
+      cmd === "read_script" ? source : undefined,
+    );
+    render(<App />);
+    fireEvent.click(screen.getByTitle("打开 (Ctrl+O)"));
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: new RegExp(labels[kind]) }),
+    );
+    expect(screen.getByLabelText(/^变量名/)).toHaveValue("token");
+    expect(screen.getByLabelText(/^提取表达式/)).toHaveValue(
+      "custom expression",
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "启用组件" }),
+    ).not.toBeChecked();
+  },
+);
+it.each(["jdbc_request", "javascript"] as const)(
+  "does not offer HTTP extractors under %s",
+  (kind) => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));
+    fireEvent.change(screen.getByLabelText(/添加到/), {
+      target: { value: kind },
+    });
+    fireEvent.contextMenu(
+      screen.getByRole("treeitem", { name: new RegExp(labels[kind]) }),
+    );
+    fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "后置处理器" }));
+    expect(
+      screen.getByRole("menuitem", { name: /JavaScript 后置处理器/ }),
+    ).toBeInTheDocument();
+    for (const k of extractorKinds)
+      expect(
+        screen.queryByRole("menuitem", { name: new RegExp(labels[k]) }),
+      ).not.toBeInTheDocument();
+  },
+);
