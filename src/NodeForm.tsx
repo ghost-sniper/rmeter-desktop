@@ -25,7 +25,15 @@ interface Props {
 type Field = {
   path: string;
   label: string;
-  type?: "number" | "text" | "password" | "code" | "json" | "boolean" | "count";
+  type?:
+    | "number"
+    | "text"
+    | "password"
+    | "code"
+    | "json"
+    | "boolean"
+    | "count"
+    | "csv";
   hint?: string;
   placeholder?: string;
   options?: [string, string][];
@@ -197,8 +205,23 @@ const specificFields: Partial<Record<EditorNode["kind"], Field[]>> = {
       hint: "默认 8388608",
     },
     { path: "save_response_body", label: "保存响应体", type: "boolean" },
-    { path: "result_variable", label: "结果变量" },
-    { path: "row_count_variable", label: "行数变量" },
+    {
+      path: "result_variable",
+      label: "整表结果变量",
+      hint: '保存 JSONArray，例如 [{"id":1,"name":"张三"}]；填写 result 后可通过 ${result_#} 读取行数。',
+    },
+    {
+      path: "variable_names",
+      label: "按列变量名",
+      type: "csv",
+      placeholder: "id,,name",
+      hint: "按查询列顺序填写，逗号分隔；空位置跳过该列。id_1、id_2 读取各行，id_# 读取行数。可与整表结果变量同时使用。",
+    },
+    {
+      path: "row_count_variable",
+      label: "额外行数变量",
+      hint: "可选；上述两种保存方式已自动生成 变量_#。",
+    },
   ],
   javascript: [
     {
@@ -238,6 +261,10 @@ function InputField({ field, ...props }: Props & { field: Field }) {
       change(undefined);
       return;
     }
+    if (field.type === "csv") {
+      change(text.split(","));
+      return;
+    }
     if (
       field.type === "json" ||
       field.type === "number" ||
@@ -275,11 +302,13 @@ function InputField({ field, ...props }: Props & { field: Field }) {
     draft?.text ??
     (value === undefined
       ? ""
-      : field.type === "json"
-        ? JSON.stringify(value, null, 2)
-        : value === null
-          ? "null"
-          : String(value));
+      : field.type === "csv" && Array.isArray(value)
+        ? value.join(",")
+        : field.type === "json"
+          ? JSON.stringify(value, null, 2)
+          : value === null
+            ? "null"
+            : String(value));
   return (
     <div
       className={`field ${field.type === "code" || field.type === "json" ? "wide" : ""}`}
@@ -372,6 +401,9 @@ function Pairs({
   ...props
 }: Props & { path: string; label: string; variables?: boolean }) {
   const value = getValue(props.node.data, path);
+  const samplerList =
+    props.node.kind === "http_request" &&
+    (path === "settings.headers" || path === "settings.query");
   const pairs: [string, string][] =
     variables && object(value)
       ? Object.entries(value).map(([k, v]) => [k, String(v)])
@@ -407,6 +439,11 @@ function Pairs({
           >
             ＋ 添加
           </button>
+          {samplerList && (
+            <button type="button" onClick={() => set([])}>
+              清空并停止继承
+            </button>
+          )}
           <button
             type="button"
             onClick={() =>
@@ -417,6 +454,16 @@ function Pairs({
           </button>
         </div>
       </div>
+      {samplerList && (
+        <p className="field-hint">
+          {Array.isArray(value)
+            ? value.length
+              ? "已设置：整组使用以下条目，不合并 HTTP 默认配置中的条目。"
+              : "已清空：不继承 HTTP 默认配置中的条目。"
+            : "未设置：继承 HTTP 默认配置中的条目。"}
+          点击“恢复缺省”可重新继承。
+        </p>
+      )}
       <table>
         <thead>
           <tr>
@@ -546,15 +593,30 @@ function AssertionsForm(props: Props) {
         };
         return (
           <section
-            className="assertion-card"
+            className={`assertion-card${assertion.enabled === false ? " is-inactive" : ""}`}
             key={index}
             aria-label={`断言 ${index + 1}`}
           >
             <div className="section-line">
               <h4>
                 {index + 1}. {assertionLabels[type]}
+                {assertion.enabled === false && "（已禁用）"}
               </h4>
               <div>
+                <label className="enable-toggle">
+                  <input
+                    type="checkbox"
+                    aria-label={`启用断言 ${index + 1}`}
+                    checked={assertion.enabled !== false}
+                    onChange={(event) =>
+                      itemProps.onChange({
+                        ...assertion,
+                        enabled: event.target.checked,
+                      })
+                    }
+                  />
+                  启用断言
+                </label>
                 <button
                   type="button"
                   disabled={index === 0}
@@ -716,9 +778,27 @@ export default function NodeForm(props: Props) {
       <div className="form-section">
         <h3>基本信息</h3>
         <div className="form-grid">
-          {node.kind !== "loop" &&
-            node.kind !== "http_defaults" &&
-            render({ path: "name", label: "名称", required: true })}
+          {render({
+            path: "name",
+            label: "名称",
+            required: node.kind !== "loop" && node.kind !== "http_defaults",
+            placeholder: labels[node.kind],
+          })}
+          <div className="field">
+            <label className="enable-toggle">
+              <input
+                type="checkbox"
+                checked={node.data.enabled !== false}
+                onChange={(event) =>
+                  onChange({ ...node.data, enabled: event.target.checked })
+                }
+              />
+              启用组件
+            </label>
+            <small>
+              禁用时跳过此组件及其子节点；父节点禁用时，子节点也不执行。
+            </small>
+          </div>
           <div className="field">
             <label>组件类型</label>
             <div className="static-value">{labels[node.kind]}</div>
@@ -815,6 +895,7 @@ export default function NodeForm(props: Props) {
         <p className="form-section field-hint">
           作用于所在层级及后代的 HTTP 采样器，不受配置节点放置在采样器前后影响。
           同层多个默认配置按树顺序合并，后者覆盖前者；内层配置与采样器显式设置优先。
+          采样器显式设置的请求头、查询参数整组覆盖默认列表，未设置的字段继续继承。
           此组件不发送请求，也不产生采样结果。
         </p>
       )}

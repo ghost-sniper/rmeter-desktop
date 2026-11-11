@@ -78,6 +78,8 @@ function inspectEditable(
   path: string,
   issues: string[],
 ) {
+  if (own(data, "enabled") && typeof data.enabled !== "boolean")
+    issues.push(`${path}.enabled 必须是布尔值`);
   const pairs = (value: Json, key: string) => {
     if (
       value !== null &&
@@ -124,6 +126,13 @@ function inspectEditable(
       if (body.type === "form") pairs(body.value, `${path}.body.value`);
     }
   }
+  if (
+    kind === "jdbc_request" &&
+    own(data, "variable_names") &&
+    (!Array.isArray(data.variable_names) ||
+      data.variable_names.some((name) => typeof name !== "string"))
+  )
+    issues.push(`${path}.variable_names 必须是按列顺序排列的字符串数组`);
 }
 const fields: Record<Kind, string[]> = {
   plan: [
@@ -143,10 +152,10 @@ const fields: Record<Kind, string[]> = {
     "on_error",
     "children",
   ],
-  loop: ["type", "count", "children"],
+  loop: ["type", "name", "count", "children"],
   if: ["type", "name", "condition", "evaluate_all", "children"],
   while: ["type", "name", "condition", "children"],
-  http_defaults: ["type", "settings"],
+  http_defaults: ["type", "name", "settings"],
   http_request: [
     "type",
     "name",
@@ -171,6 +180,7 @@ const fields: Record<Kind, string[]> = {
     "max_result_bytes",
     "save_response_body",
     "result_variable",
+    "variable_names",
     "row_count_variable",
     "assertions",
     "post_processors",
@@ -203,13 +213,7 @@ export function createNode(kind: Kind): EditorNode {
             on_error: "continue",
           }
         : { type: kind };
-  if (
-    kind !== "plan" &&
-    kind !== "group" &&
-    kind !== "loop" &&
-    kind !== "http_defaults"
-  )
-    data.name = labels[kind];
+  if (kind !== "plan" && kind !== "group") data.name = labels[kind];
   if (kind === "loop") data.count = 1;
   if (kind === "if" || kind === "while") data.condition = "${enabled}";
   if (kind === "http_request")
@@ -382,7 +386,7 @@ export function parseDocument(source: string): Document {
       node: EditorNode = { id: uid(), kind, data, children: [] };
     inspectEditable(data, kind, path, issues);
     for (const key of Object.keys(data))
-      if (!fields[kind].includes(key))
+      if (key !== "enabled" && !fields[kind].includes(key))
         issues.push(`${path}.${key} 不在首版编辑范围内`);
     if ("assertions" in data)
       inspectAssertions(data.assertions, `${path}.assertions`, issues);

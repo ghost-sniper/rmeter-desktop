@@ -29,6 +29,14 @@ import { RunMessage, emptyResults, receiveResults } from "./results";
 import "./App.css";
 
 const filter = [{ name: "rmeter 测试脚本", extensions: ["json"] }];
+const componentMenus: { label: string; kinds: Kind[] }[] = [
+  {
+    label: "配置元件",
+    kinds: ["jdbc_connection_configuration", "http_defaults"],
+  },
+  { label: "采样器", kinds: ["http_request", "jdbc_request", "javascript"] },
+  { label: "逻辑控制器", kinds: ["loop", "while", "if"] },
+];
 type RunState =
   | "idle"
   | "starting"
@@ -70,6 +78,7 @@ export default function App() {
   const [resultsOpen, setResultsOpen] = useState(false);
   const [selectedResult, setSelectedResult] = useState<number>();
   const [menu, setMenu] = useState<string>();
+  const [contextCategory, setContextCategory] = useState<string>();
   const [context, setContext] = useState<{
     id: string;
     x: number;
@@ -377,6 +386,16 @@ export default function App() {
     setContext(undefined);
     setMenu(undefined);
   }
+  function toggleEnabled(id: string) {
+    if (disabled) return;
+    edit(
+      updateNode(document.root, id, (item) => ({
+        ...item,
+        data: { ...item.data, enabled: item.data.enabled === false },
+      })),
+    );
+    setContext(undefined);
+  }
   function duplicate(id = node.id) {
     if (disabled) return;
     const n = findNode(document.root, id),
@@ -426,7 +445,8 @@ export default function App() {
     n,
     ...(collapsed.has(n.id) ? [] : n.children.flatMap(visibleNodes)),
   ];
-  function tree(n: EditorNode, depth = 0) {
+  function tree(n: EditorNode, depth = 0, parentEnabled = true) {
+    const enabled = parentEnabled && n.data.enabled !== false;
     return (
       <div key={n.id} role="none">
         <div
@@ -435,7 +455,7 @@ export default function App() {
           aria-selected={selected === n.id}
           aria-expanded={n.children.length ? !collapsed.has(n.id) : undefined}
           tabIndex={selected === n.id ? 0 : -1}
-          className={`tree-row ${selected === n.id ? "selected" : ""}`}
+          className={`tree-row ${selected === n.id ? "selected" : ""}${enabled ? "" : " is-inactive"}`}
           style={{ paddingLeft: 10 + depth * 18 }}
           onClick={() => {
             setSelected(n.id);
@@ -444,10 +464,11 @@ export default function App() {
           onContextMenu={(e) => {
             e.preventDefault();
             setSelected(n.id);
+            setContextCategory(undefined);
             setContext({
               id: n.id,
-              x: Math.min(e.clientX, window.innerWidth - 230),
-              y: Math.min(e.clientY, window.innerHeight - 430),
+              x: Math.max(8, Math.min(e.clientX, window.innerWidth - 238)),
+              y: Math.max(8, Math.min(e.clientY, window.innerHeight - 300)),
             });
           }}
           onKeyDown={(e) => {
@@ -500,13 +521,18 @@ export default function App() {
           </button>
           <span className={`node-icon ${n.kind}`}>{icons[n.kind]}</span>
           <span className="node-title">{title(n)}</span>
+          {!enabled && (
+            <span className="node-state">
+              {n.data.enabled === false ? "已禁用" : "随父节点禁用"}
+            </span>
+          )}
           {n.kind === "group" && (
             <span className="tree-count">{n.children.length}</span>
           )}
         </div>
         {!collapsed.has(n.id) && n.children.length > 0 && (
           <div role="group">
-            {n.children.map((child) => tree(child, depth + 1))}
+            {n.children.map((child) => tree(child, depth + 1, enabled))}
           </div>
         )}
       </div>
@@ -1061,32 +1087,107 @@ export default function App() {
       {context && (
         <div
           className="context-menu dropdown"
+          role="menu"
+          aria-label="节点操作"
           style={{ left: context.x, top: Math.max(8, context.y) }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="menu-caption">添加组件</div>
-          {componentKinds
-            .filter((k) =>
-              allowed(findNode(document.root, context.id)!.kind, k),
-            )
-            .map((k) => (
-              <button
-                key={k}
-                disabled={disabled}
-                onClick={() => add(k, context.id)}
+          {allowed(findNode(document.root, context.id)!.kind, "group") && (
+            <button
+              role="menuitem"
+              disabled={disabled}
+              onClick={() => add("group", context.id)}
+            >
+              <span className="node-icon">{icons.group}</span>
+              {labels.group}
+            </button>
+          )}
+          {componentMenus.map(({ label, kinds }) => {
+            const available = kinds.filter((kind) =>
+              allowed(findNode(document.root, context.id)!.kind, kind),
+            );
+            if (!available.length) return null;
+            const expanded = contextCategory === label && !disabled;
+            return (
+              <div
+                className="context-category"
+                key={label}
+                onMouseEnter={() => {
+                  if (!disabled) setContextCategory(label);
+                }}
+                onMouseLeave={() => setContextCategory(undefined)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowRight" && !disabled) {
+                    event.preventDefault();
+                    const category = event.currentTarget;
+                    setContextCategory(label);
+                    requestAnimationFrame(() =>
+                      category
+                        .querySelector<HTMLButtonElement>(
+                          '[role="menu"] button',
+                        )
+                        ?.focus(),
+                    );
+                  } else if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    setContextCategory(undefined);
+                    event.currentTarget.querySelector("button")?.focus();
+                  }
+                }}
               >
-                <span className="node-icon">{icons[k]}</span>
-                {labels[k]}
-              </button>
-            ))}
+                <button
+                  role="menuitem"
+                  aria-haspopup="menu"
+                  aria-expanded={expanded}
+                  disabled={disabled}
+                  onClick={() => setContextCategory(label)}
+                >
+                  {label}
+                  <span className="submenu-arrow" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+                {expanded && (
+                  <div
+                    className={`context-submenu dropdown${context.x + 460 > window.innerWidth - 8 ? " open-left" : ""}`}
+                    role="menu"
+                    aria-label={label}
+                  >
+                    {available.map((kind) => (
+                      <button
+                        role="menuitem"
+                        key={kind}
+                        onClick={() => add(kind, context.id)}
+                      >
+                        <span className="node-icon">{icons[kind]}</span>
+                        {labels[kind]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <hr />
           <button
+            role="menuitem"
+            disabled={disabled}
+            onClick={() => toggleEnabled(context.id)}
+          >
+            {findNode(document.root, context.id)?.data.enabled === false
+              ? "启用组件"
+              : "禁用组件"}
+          </button>
+          <button
+            role="menuitem"
             disabled={disabled || context.id === document.root.id}
             onClick={() => duplicate(context.id)}
           >
             复制节点
           </button>
           <button
+            role="menuitem"
             disabled={disabled || context.id === document.root.id}
             onClick={() => void remove(context.id)}
           >

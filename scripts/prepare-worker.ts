@@ -1,9 +1,15 @@
 import { existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const repo = "https://github.com/ghost-sniper/rmeter.git";
-const tag = "v0.1.0";
 const root = resolve(import.meta.dir, "..");
+const manifest = Bun.TOML.parse(
+  await Bun.file(join(root, "src-tauri", "Cargo.toml")).text(),
+) as { dependencies: { rmeter: { git: string; rev: string } } };
+const { git: repo, rev } = manifest.dependencies.rmeter;
+if (!repo || !/^[0-9a-f]{40}$/.test(rev))
+  throw Error(
+    "rmeter 依赖必须指定 Git 仓库和完整的固定提交，以确保 worker 与核心版本一致。",
+  );
 async function run(args: string[], capture = false): Promise<string> {
   const process = Bun.spawn(args, {
     cwd: root,
@@ -27,7 +33,7 @@ const target =
   Bun.env.TAURI_ENV_TARGET_TRIPLE ||
   (await run(["rustc", "--print", "host-tuple"], true));
 const extension = target.includes("windows") ? ".exe" : "";
-const cache = join(root, ".cache", "worker", tag, target);
+const cache = join(root, ".cache", "worker", rev, target);
 const binary = join(cache, "bin", `rmeter-js-worker${extension}`);
 if (!existsSync(binary) || Bun.argv.includes("--force")) {
   await run([
@@ -35,8 +41,8 @@ if (!existsSync(binary) || Bun.argv.includes("--force")) {
     "install",
     "--git",
     repo,
-    "--tag",
-    tag,
+    "--rev",
+    rev,
     "--locked",
     "--target",
     target,
@@ -56,4 +62,4 @@ copyFileSync(
   binary,
   join(destination, `rmeter-js-worker-${target}${extension}`),
 );
-console.log(`rmeter ${tag} worker 已准备：${target}`);
+console.log(`rmeter ${rev} worker 已准备：${target}`);

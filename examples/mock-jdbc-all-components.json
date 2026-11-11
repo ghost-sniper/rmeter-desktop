@@ -66,7 +66,7 @@
         {
           "type": "javascript",
           "name": "JavaScript initialize",
-          "script": "const result = JSON.parse(vars.get('db_result')); if (vars.get('db_rows') !== '1' || result.rows[0][0] !== 'ipds_dev' || result.rows[0][1] !== 'postgres' || result.rows[0][2] !== 42) throw new Error('Unexpected JDBC identity or bound parameter'); vars.put('item_id', String(result.rows[0][2])); vars.put('step', '0'); vars.put('again', 'true');",
+          "script": "const result = JSON.parse(vars.get('db_result')); if (vars.get('db_result_#') !== '1' || result[0].database !== 'ipds_dev' || result[0].username !== 'postgres' || result[0].item_id !== 42) throw new Error('Unexpected JDBC identity or bound parameter'); vars.put('item_id', String(result[0].item_id)); vars.put('step', '0'); vars.put('again', 'true');",
           "timeout_ms": 1000,
           "max_variable_bytes": 65536
         },
@@ -423,6 +423,7 @@
               "max_result_bytes": 4096,
               "save_response_body": true,
               "result_variable": "step_result",
+              "variable_names": ["db_step", "db_marker"],
               "row_count_variable": "db_rows",
               "assertions": [
                 {
@@ -439,7 +440,7 @@
             {
               "type": "javascript",
               "name": "JavaScript advance",
-              "script": "const result = JSON.parse(vars.get('step_result')); const step = Number(vars.get('step')); if (result.row_count !== 1 || result.rows[0][0] !== step || result.rows[0][1] !== 'rmeter') throw new Error('JDBC parameter or variable mismatch'); vars.put('step', String(step + 1)); vars.put('again', step + 1 < 2 ? 'true' : 'false');",
+              "script": "const result = JSON.parse(vars.get('step_result')); const step = Number(vars.get('step')); if (vars.get('step_result_#') !== '1' || result[0].step !== step || result[0].marker !== 'rmeter' || vars.get('db_step_1') !== String(step) || vars.get('db_marker_1') !== 'rmeter' || vars.get('db_step_#') !== '1') throw new Error('JDBC parameter or variable mismatch'); vars.put('step', String(step + 1)); vars.put('again', step + 1 < 2 ? 'true' : 'false');",
               "timeout_ms": 1000,
               "max_variable_bytes": 65536
             }

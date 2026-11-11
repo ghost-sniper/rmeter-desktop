@@ -1,6 +1,6 @@
 # rmeter desktop
 
-基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的 **v0.1.0** tag。
+基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的固定提交 **fd6e5773cbeb5387afc0f803007707048d6e5663**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用及 JDBC 整表/按列结果变量）。
 
 ## 开发与构建
 
@@ -18,12 +18,12 @@ bun run tauri build
 
 ### 私有 Git 依赖
 
-`src-tauri/Cargo.toml` 固定使用 HTTPS Git URL、`tag = "v0.1.0"` 和 `default-features = false`；`Cargo.lock` 固定实际提交。项目 `.cargo/config.toml` 启用 Git CLI 拉取。
+`src-tauri/Cargo.toml` 使用 HTTPS Git URL、完整 `rev` 和 `default-features = false`；`Cargo.lock` 固定同一提交。项目 `.cargo/config.toml` 启用 Git CLI 拉取。
 
 先通过本机 Git Credential Manager 完成拥有仓库读取权限的 GitHub 账号认证，确认以下命令能够返回标签：
 
 ```powershell
-git ls-remote https://github.com/ghost-sniper/rmeter.git refs/tags/v0.1.0
+git ls-remote https://github.com/ghost-sniper/rmeter.git refs/heads/master
 ```
 
 GitHub 应用连接的权限不会自动成为本机 Git 凭据。不要把 token 写入 URL、Cargo 配置或项目文件。CI 通过其凭据管理配置只读访问。
@@ -36,13 +36,14 @@ bun run prepare:worker
 bun run prepare:worker --force
 ```
 
-脚本从同一仓库和 tag 构建 `rmeter-component` 的 `rmeter-js-worker`，缓存到 `.cache/worker/v0.1.0/<target>/`，复制到 `src-tauri/binaries/rmeter-js-worker-<target>.exe`，由 Tauri `externalBin` 打包。缓存和二进制不提交版本控制。
+脚本直接读取 `src-tauri/Cargo.toml` 中的 Git 仓库和 `rev`，从同一提交构建 `rmeter-component` 的 `rmeter-js-worker`，缓存到 `.cache/worker/<rev>/<target>/`，复制到 `src-tauri/binaries/rmeter-js-worker-<target>.exe`，由 Tauri `externalBin` 打包。缓存和二进制不提交版本控制。
 
 开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 校验与执行报错，纯 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。
 
 ## 使用
 
 - 新建测试计划，选择线程组，通过右键或左下方选择器添加组件。树支持复制、删除、上下移动、移动到合法父节点及方向键导航。
+- 右键菜单按“配置元件”（JDBC 连接配置、HTTP 默认配置）、“采样器”（HTTP、JDBC、JavaScript）和“逻辑控制器”（Loop、While、IF）分类，悬停或点击展开子菜单；仅显示当前父节点允许添加的组件，测试计划下仍可直接添加线程组。
 - `Ctrl+N` 新建、`Ctrl+O` 打开、`Ctrl+S` 保存、`Ctrl+Shift+S` 另存为；树内 `Ctrl+D` 复制、`Delete` 删除。
 - 校验调用核心库，不发送 HTTP 请求或建立数据库连接；JavaScript 编译检查会启动隔离 worker。
 - 运行前再次校验。运行期间配置锁定，停止取消活动采样。每次只运行一个计划，关闭应用时处理未保存修改与活动任务。
@@ -59,7 +60,7 @@ JavaScript 支持 `vars.get/put/remove/contains` 与 `ctx`，不提供 Node.js�
 
 ### 文件格式与保护
 
-使用 rmeter `version: 1` 的 UTF-8 JSON（读取支持 BOM），不支持 JMX。节点 ID、选中状态和展开状态不写入文件；不提供通用禁用、备注、Loop 或 HTTP 默认配置的自定义名称。已支持字段保留缺省/null 区别、请求头与参数重复键和顺序。
+使用 rmeter `version: 1` 的 UTF-8 JSON（读取支持 BOM），不支持 JMX。所有已支持的节点和三类断言均可设置名称，名称写入原生 `name` 字段并显示在节点树或断言列表中。Loop 和 HTTP 默认配置兼容旧脚本省略名称（或 `null`），缺省时显示组件类型名；显式字符串名称不能仅为空白。节点 ID、选中状态和展开状态不写入文件；不提供备注。已支持字段保留缺省/null 区别、请求头与参数重复键和顺序。
 
 含范围外节点、不支持的断言类型或非空后置处理器的文件显示原始内容并只读打开，禁止保存覆盖和运行。格式错误、未知字段以及可能无法无损编辑的数据同样只读保护。库支持的 JDBC 类型别名保存时规范为标准类型名。
 
@@ -81,11 +82,34 @@ JavaScript 支持 `vars.get/put/remove/contains` 与 `ctx`，不提供 Node.js�
 
 运行结果表显示每次采样通过的断言数 / 总断言数；选择采样后可查看断言名称、通过 / 失败状态和核心库返回的失败原因。该计数属于断言，顶部统计仍按采样计数。
 
+## 启用与禁用
+
+节点详情的“启用组件”和右键“启用组件 / 禁用组件”控制执行状态；三类断言也有独立开关。状态写入原生 JSON 的 `enabled` 布尔字段，缺省等同于 `true`。禁用后仍可编辑、复制和保存配置，节点树显示“已禁用”；父节点被禁用时后代显示“随父节点禁用”，各子节点自身的状态保持不变。
+
+核心库在编译执行计划前跳过禁用项：禁用采样器不发送请求、不产生结果；禁用控制器或线程组跳过整个子树；禁用 HTTP/JDBC 配置不参与作用域；禁用断言不参与校验和统计。禁用 JavaScript 不编译脚本或启动 worker。已启用的 JDBC 请求若仅引用了被禁用的连接配置，会报缺少连接。全部禁用或禁用测试计划时，运行正常完成，采样数为 0。
+
+禁用节点的执行配置可以暂未填写完整；重新启用后按正常规则校验。编辑器仍保护不支持的组件和字段，格式错误的表单草稿仍需修正后保存。运行期间及只读文件中不能修改启用状态。
+
+## JDBC 结果变量
+
+参考 [JMeter JDBC Request](https://jmeter.apache.org/usermanual/component_reference.html#JDBC_Request)，提供两种可独立或同时使用的方式：
+
+| 配置 | 保存内容与访问方法 |
+| --- | --- |
+| 整表结果变量：`result` | `result` 为 JSONArray 字符串，例如 `[{"id":1,"name":"张三"}]`；`${result_#}` 为行数；JavaScript 使用 `JSON.parse(vars.get("result"))[0].id` |
+| 按列变量名：`id,,name` | 按查询列顺序映射，跳过第 2 列；`${id_1}`、`${id_2}` 读取第 1 列各行，`${name_1}` 读取第 3 列第 1 行；`${id_#}`、`${name_#}` 为行数 |
+
+按列名称在原生 JSON 中保存为 `"variable_names": ["id", "", "name"]`，不足的名称跳过后续列，多余名称只有行数。行号从 1 开始。SQL NULL 在整表 JSON 中保留为 null，在按列模式下不设置对应单元格变量；文本不额外加引号，其他值序列化为字符串。两种方式的输出名称须避免冲突。
+
+零行时整表变量为 `[]`、行数为 `0`。每次采样会清除上一次的行变量，查询变少、失败、超时或取消均不会沿用旧结果；变量隔离在各虚拟用户内。原“行数变量”保留为“额外行数变量”，通常无需填写。保存响应体开关不影响结果变量，变量总字节数也受结果容量限制。
+
+整表变量已从旧版的响应包对象改为 JSONArray。旧脚本里的 `result.rows[0][0]` 需改为 `result[0].列名`；项目联动示例已更新。响应详情与断言仍使用原来的 `columns/rows/row_count/rows_affected` 结构。整表对象遇到同名列时后列覆盖前列，可通过 SQL 别名区分。
+
 ## 示例与测试
 
 ### 配置组件作用域
 
-已核对固定 `v0.1.0` 的 `src/script.rs` 与 `rmeter-component/src/component.rs`：HTTP 默认配置是独立 `http_defaults` 组件，JDBC 连接配置是独立 `jdbc_connection_configuration` 组件。二者均不产生采样，配置合并、引用及作用域由库编译器处理。
+已核对所固定核心提交的 `src/script.rs` 与 `rmeter-component/src/component.rs`：HTTP 默认配置是独立 `http_defaults` 组件，JDBC 连接配置是独立 `jdbc_connection_configuration` 组件。二者均不产生采样，配置合并、引用及作用域由库编译器处理。
 
 | 配置 | 可放置位置 | 生效规则 |
 | --- | --- | --- |
@@ -95,7 +119,9 @@ JavaScript 支持 `vars.get/put/remove/contains` 与 `ctx`，不提供 Node.js�
 
 配置作用于整个所在层级，放在采样器之后也生效。内层覆盖不会影响外层兄弟节点或其他线程组。计划下的 JDBC 配置保存为根 `jdbc_connections` 数组，条目不带 `type`；其他位置保存为带 `type` 的组件。
 
-按原生结构，HTTP/JDBC 采样器仍为叶节点，不能添加配置子节点；核心 JSON 格式不接受 HTTP 采样器的 `children`。HTTP 默认配置只包含 `type` 和 `settings`，所以显示固定名称。新增 HTTP 采样器不再预填完整 URL，以便继承作用域中的地址；显式填写完整 URL 时，其地址优先于默认配置中的协议、主机、端口和路径。空请求头/查询数组清除对应继承内容，非空数组按核心规则合并。
+按原生结构，HTTP/JDBC 采样器仍为叶节点，不能添加配置子节点；核心 JSON 格式不接受 HTTP 采样器的 `children`。HTTP 默认配置包含 `type`、`settings` 和可选的 `name`，名称仅用于编辑器展示，不影响配置作用域。新增 HTTP 采样器不再预填完整 URL，以便继承作用域中的地址；显式填写完整 URL 时，其地址优先于默认配置中的协议、主机、端口和路径。
+
+采样器显式设置的字段使用自身值，未设置字段继续继承；请求头与查询参数只要设置数组就整组替换默认列表，保留重复键和顺序。空数组 `[]` 清除对应继承内容，缺省或 `null` 继承默认列表。界面提供“清空并停止继承”和“恢复缺省”，并显示当前状态。默认配置节点之间仍按键合并，内层或同层后置配置覆盖同名项。已有脚本中非空采样器列表不再自动补入默认列表的其他项；需要这些项时应显式添加到采样器，或恢复缺省以继承整个默认列表。
 
 `examples/http-defaults-scopes.json` 使用 Mock Studio 的 `/examples/query` 和 `/examples/items/42` 验证上述 HTTP 规则，预期 7 次成功采样。`examples/jdbc-scopes.json` 使用指定 `ipds_dev` 验证全局、线程组、控制器继承与同名覆盖，预期 8 次成功采样；通过连接启动参数设置会话 `search_path` 并只读查询该值区分作用域，不访问业务表或修改持久数据库配置。这两项验收与八组件联动测试一起由 `bun run test:integration` 执行。
 

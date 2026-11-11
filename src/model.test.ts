@@ -14,15 +14,79 @@ import {
   serializeNode,
   setValue,
   stringify,
+  title,
 } from "./model";
 
 describe("native script model", () => {
+  it("preserves enabled flags, disabled subtrees and assertions across save and copy", () => {
+    const source = structuredClone(httpScopes);
+    const root = parseDocument(JSON.stringify(source)).root;
+    for (const [index, node] of flatten(root).entries())
+      node.data.enabled = index % 2 === 0;
+    const request = flatten(root).find((node) => node.kind === "http_request")!;
+    (request.data.assertions as { enabled?: boolean }[])[0].enabled = false;
+    const saved = stringify(root);
+    const reopened = parseDocument(saved);
+    expect(reopened.issues).toEqual([]);
+    expect(stringify(reopened.root)).toBe(saved);
+    expect(stringify(cloneNode(reopened.root))).toBe(saved);
+    for (const invalid of [null, 0, "false"]) {
+      root.data.enabled = invalid;
+      expect(parseDocument(stringify(root)).issues.join()).toContain("enabled");
+    }
+  });
+  it("round trips JDBC result mappings and protects malformed column lists", () => {
+    const root = newDocument().root;
+    const node = createNode("jdbc_request");
+    Object.assign(node.data, {
+      result_variable: "rows",
+      variable_names: ["id", "", "name", ""],
+      row_count_variable: "count",
+    });
+    root.children[0].children.push(node);
+    const source = stringify(root);
+    const reopened = parseDocument(source);
+    expect(reopened.issues).toEqual([]);
+    expect(stringify(reopened.root)).toBe(source);
+    for (const invalid of ["id,name", [1], null]) {
+      node.data.variable_names = invalid;
+      expect(parseDocument(stringify(root)).issues.join()).toContain(
+        "variable_names",
+      );
+    }
+  });
+  it("preserves optional Loop and HTTP defaults names across save, reopen and copy", () => {
+    for (const kind of ["loop", "http_defaults"] as const) {
+      for (const name of [undefined, null, "订单 / 自定义名称"]) {
+        const root = newDocument().root;
+        const node = createNode(kind);
+        if (name === undefined) delete node.data.name;
+        else node.data.name = name;
+        root.children[0].children.push(node);
+        const source = stringify(root);
+        const reopened = parseDocument(source);
+        expect(reopened.issues).toEqual([]);
+        expect(stringify(reopened.root)).toBe(source);
+        const restored = reopened.root.children[0].children[0];
+        expect(title(restored)).toBe(
+          name ?? (kind === "loop" ? "Loop 循环" : "HTTP 默认配置"),
+        );
+        expect(serializeNode(cloneNode(restored))).toEqual(
+          serializeNode(restored),
+        );
+      }
+    }
+  });
   it("round trips standalone HTTP defaults without inventing sampler children", () => {
     const document = parseDocument(JSON.stringify(httpScopes));
     expect(document.issues).toEqual([]);
     expect(JSON.parse(stringify(document.root))).toEqual(httpScopes);
     const config = createNode("http_defaults");
-    expect(config.data).toEqual({ type: "http_defaults", settings: {} });
+    expect(config.data).toEqual({
+      type: "http_defaults",
+      name: "HTTP 默认配置",
+      settings: {},
+    });
     for (const kind of ["group", "loop", "if", "while"] as const)
       expect(allowed(kind, "http_defaults")).toBe(true);
     expect(allowed("http_request", "http_defaults")).toBe(false);

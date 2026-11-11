@@ -372,6 +372,133 @@ mod tests {
         assert_eq!(std::fs::read_to_string(path).unwrap(), "second");
     }
     #[tokio::test]
+    async fn disabled_components_skip_execution_and_empty_plans_complete() {
+        let fixture = http_fixture(200, b"ok".to_vec()).await;
+        let mut active = request(&fixture.url);
+        active["assertions"] = json!([{"type":"regex","enabled":false,"pattern":"["}]);
+        let mut source = plan(json!([
+            {"type":"loop","enabled":false,"count":"infinite","children":[active.clone()]},
+            {"type":"javascript","enabled":false,"script":"invalid syntax ("},
+            {"type":"http_defaults","enabled":false,"settings":{"host":"wrong.test"}},
+            active
+        ]));
+        source["jdbc_connections"] = json!([{"enabled":false,"url":"invalid"}]);
+        let (status, summary, events) = collect(source.clone()).await;
+        assert_eq!(status, "completed");
+        assert_eq!(summary.samples, 1);
+        assert_eq!(summary.passed, 1);
+        for preview in events {
+            if let ReportEvent::SampleCompleted { assertions, .. } = preview.event {
+                assert!(assertions.is_empty());
+            }
+        }
+        source["groups"][0]["enabled"] = json!(false);
+        let (status, summary, _) = collect(source.clone()).await;
+        assert_eq!(status, "completed");
+        assert_eq!(summary.samples, 0);
+        assert!(summary.finished);
+        source["enabled"] = json!(false);
+        source["groups"] = json!("inactive configuration");
+        let (status, summary, _) = collect(source).await;
+        assert_eq!(status, "completed");
+        assert_eq!(summary.samples, 0);
+        assert_eq!(fixture.requests.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn native_http_sampler_lists_replace_defaults_or_inherit_when_unset() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            let mut requests = Vec::new();
+            for _ in 0..6 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut bytes = Vec::new();
+                loop {
+                    let mut chunk = [0; 1024];
+                    let count = socket.read(&mut chunk).await.unwrap();
+                    assert!(count > 0);
+                    bytes.extend_from_slice(&chunk[..count]);
+                    if bytes.windows(4).any(|w| w == b"\r\n\r\n") {
+                        break;
+                    }
+                    assert!(bytes.len() < 8192);
+                }
+                requests.push(String::from_utf8(bytes).unwrap().to_ascii_lowercase());
+                socket
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
+                    )
+                    .await
+                    .unwrap();
+            }
+            requests
+        });
+        let headers = json!([["X-Own", "one"], ["X-Own", "two"]]);
+        let query = json!([["own", "one"], ["own", "two"]]);
+        let settings = [
+            json!({}),
+            json!({"headers":null,"query":null}),
+            json!({"headers":[],"query":[]}),
+            json!({"headers":headers}),
+            json!({"query":query}),
+            json!({"headers":headers,"query":query,"path":"/own","request_timeout_ms":null}),
+        ];
+        let mut children: Vec<Value> = settings.into_iter().enumerate().map(|(index, settings)| {
+            json!({"type":"http_request","name":format!("case {index}"),"settings":settings})
+        }).collect();
+        children.push(
+            json!({"type":"http_defaults","name":"内层 HTTP 默认配置","settings":{
+                "path":"/scope","headers":[["X-Scope","scope"]],"query":[["scope","scope"]]
+            }}),
+        );
+        let source = json!({"version":1,"name":"list replacement","defaults":{
+            "host":"127.0.0.1","port":port,"path":"/root","save_response_body":true,
+            "headers":[["X-Root","root"]],"query":[["root","root"]]
+        },"groups":[{"name":"group","children":[{"type":"loop","name":"带名称的循环","count":1,"children":children}]}]});
+        let (status, summary, events) = collect(source).await;
+        assert_eq!(status, "completed");
+        assert_eq!(summary.samples, 6);
+        assert_eq!(summary.passed, 6);
+        for preview in events {
+            if let ReportEvent::SampleCompleted { response_body, .. } = preview.event {
+                assert_eq!(response_body.as_deref(), Some(b"ok".as_slice()));
+            }
+        }
+        let requests = tokio::time::timeout(Duration::from_secs(5), server)
+            .await
+            .unwrap()
+            .unwrap();
+        for (index, request) in requests.iter().enumerate() {
+            let target = match index {
+                0 | 1 | 3 => "/scope?root=root&scope=scope",
+                2 => "/scope",
+                4 => "/scope?own=one&own=two",
+                5 => "/own?own=one&own=two",
+                _ => unreachable!(),
+            };
+            assert!(
+                request.starts_with(&format!("get {target} http/1.1\r\n")),
+                "{request}"
+            );
+            let inherits_headers = matches!(index, 0 | 1 | 4);
+            assert_eq!(
+                request.contains("\r\nx-root: root\r\n"),
+                inherits_headers,
+                "{request}"
+            );
+            assert_eq!(
+                request.contains("\r\nx-scope: scope\r\n"),
+                inherits_headers,
+                "{request}"
+            );
+            assert_eq!(
+                request.matches("\r\nx-own:").count(),
+                if matches!(index, 3 | 5) { 2 } else { 0 }
+            );
+        }
+    }
+    #[tokio::test]
     async fn jdbc_same_scope_duplicates_are_rejected_but_nested_overrides_are_valid() {
         let connection = json!({"type":"jdbc_connection_configuration", "name":"pool", "variable_name":"db", "url":"postgresql://127.0.0.1/test"});
         let source = plan(json!([connection.clone(), connection.clone()]));

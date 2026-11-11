@@ -2979,7 +2979,7 @@ dependencies = [
 [[package]]
 name = "rmeter"
 version = "0.1.0"
-source = "git+https://github.com/ghost-sniper/rmeter.git?tag=v0.1.0#b9567e89861193e09687a6fcaf01d0b724f2d9f3"
+source = "git+https://github.com/ghost-sniper/rmeter.git?rev=fd6e5773cbeb5387afc0f803007707048d6e5663#fd6e5773cbeb5387afc0f803007707048d6e5663"
 dependencies = [
  "rmeter-component",
  "rmeter-core",
@@ -2991,7 +2991,7 @@ dependencies = [
 [[package]]
 name = "rmeter-component"
 version = "0.1.0"
-source = "git+https://github.com/ghost-sniper/rmeter.git?tag=v0.1.0#b9567e89861193e09687a6fcaf01d0b724f2d9f3"
+source = "git+https://github.com/ghost-sniper/rmeter.git?rev=fd6e5773cbeb5387afc0f803007707048d6e5663#fd6e5773cbeb5387afc0f803007707048d6e5663"
 dependencies = [
  "bytes",
  "chrono",
@@ -3018,7 +3018,7 @@ dependencies = [
 [[package]]
 name = "rmeter-core"
 version = "0.1.0"
-source = "git+https://github.com/ghost-sniper/rmeter.git?tag=v0.1.0#b9567e89861193e09687a6fcaf01d0b724f2d9f3"
+source = "git+https://github.com/ghost-sniper/rmeter.git?rev=fd6e5773cbeb5387afc0f803007707048d6e5663#fd6e5773cbeb5387afc0f803007707048d6e5663"
 dependencies = [
  "tokio",
 ]

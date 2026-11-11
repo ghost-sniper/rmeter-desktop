@@ -2,7 +2,7 @@ import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import NodeForm, { Drafts } from "./NodeForm";
-import { EditorNode, createNode } from "./model";
+import { EditorNode, componentKinds, createNode, labels } from "./model";
 
 function Harness({
   initial,
@@ -33,6 +33,29 @@ function Harness({
     </>
   );
 }
+it.each(["plan" as const, ...componentKinds])(
+  "allows naming and toggling the %s component",
+  (kind) => {
+    render(<Harness initial={createNode(kind)} />);
+    const name = screen.getByLabelText(/^名称/);
+    expect(name).toHaveValue(labels[kind]);
+    fireEvent.change(name, { target: { value: `自定义 ${labels[kind]}` } });
+    expect(JSON.parse(screen.getByTestId("data").textContent!).name).toBe(
+      `自定义 ${labels[kind]}`,
+    );
+    const enabled = screen.getByRole("checkbox", { name: "启用组件" });
+    expect(enabled).toBeChecked();
+    fireEvent.click(enabled);
+    expect(JSON.parse(screen.getByTestId("data").textContent!).enabled).toBe(
+      false,
+    );
+    fireEvent.click(enabled);
+    expect(JSON.parse(screen.getByTestId("data").textContent!).enabled).toBe(
+      true,
+    );
+  },
+);
+
 it("retains invalid JSON draft and commits it after correction", () => {
   render(<Harness initial={createNode("jdbc_request")} />);
   const input = screen.getByLabelText("参数（JSON 数组）");
@@ -47,6 +70,50 @@ it("retains invalid JSON draft and commits it after correction", () => {
   expect(
     JSON.parse(screen.getByTestId("data").textContent!).parameters,
   ).toEqual([42, "${id}"]);
+});
+
+it.each(["JSONPath 断言", "XPath 断言", "正则表达式断言"])(
+  "retains %s configuration while toggling execution",
+  (label) => {
+    render(<Harness initial={createNode("http_request")} />);
+    fireEvent.click(screen.getByRole("button", { name: `＋ 添加${label}` }));
+    const initial = JSON.parse(screen.getByTestId("data").textContent!)
+      .assertions[0];
+    fireEvent.click(screen.getByRole("checkbox", { name: "启用断言 1" }));
+    expect(
+      JSON.parse(screen.getByTestId("data").textContent!).assertions[0],
+    ).toEqual({ ...initial, enabled: false });
+    expect(screen.getByRole("region", { name: "断言 1" })).toHaveClass(
+      "is-inactive",
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "启用断言 1" }));
+    expect(
+      JSON.parse(screen.getByTestId("data").textContent!).assertions[0],
+    ).toEqual({ ...initial, enabled: true });
+  },
+);
+
+it("configures JDBC array and positional column variables without losing skipped columns", () => {
+  const node = createNode("jdbc_request");
+  const view = render(<Harness initial={node} />);
+  fireEvent.change(screen.getByLabelText("整表结果变量"), {
+    target: { value: "rows" },
+  });
+  fireEvent.change(screen.getByLabelText("按列变量名"), {
+    target: { value: "id,,name," },
+  });
+  expect(screen.getByLabelText("按列变量名")).toHaveValue("id,,name,");
+  expect(JSON.parse(screen.getByTestId("data").textContent!)).toMatchObject({
+    result_variable: "rows",
+    variable_names: ["id", "", "name", ""],
+  });
+  fireEvent.click(screen.getByRole("button", { name: "重置按列变量名" }));
+  const saved = JSON.parse(screen.getByTestId("data").textContent!);
+  expect(saved).not.toHaveProperty("variable_names");
+  expect(saved.result_variable).toBe("rows");
+  view.rerender(<Harness initial={node} disabled />);
+  expect(screen.getByLabelText("整表结果变量")).toBeDisabled();
+  expect(screen.getByLabelText("按列变量名")).toBeDisabled();
 });
 
 it("edits three assertion types and keeps invalid drafts attached when reordering", () => {
@@ -170,6 +237,40 @@ it("edits duplicate headers independently", () => {
     ["X-Test", "a"],
     ["X-Test", "c"],
   ]);
+});
+
+it("distinguishes inherited, replaced and explicitly cleared sampler lists", () => {
+  render(<Harness initial={createNode("http_request")} />);
+  for (const [label, key] of [
+    ["请求头", "headers"],
+    ["查询参数", "query"],
+  ]) {
+    const section = within(
+      screen.getByRole("heading", { name: label }).closest("section")!,
+    );
+    expect(section.getByText(/未设置：继承/)).toBeInTheDocument();
+    fireEvent.click(section.getByRole("button", { name: "＋ 添加" }));
+    fireEvent.change(section.getByLabelText(`${label}名称 1`), {
+      target: { value: "own" },
+    });
+    fireEvent.change(section.getByLabelText(`${label}值 1`), {
+      target: { value: "value" },
+    });
+    expect(section.getByText(/已设置：整组使用/)).toBeInTheDocument();
+    expect(
+      JSON.parse(screen.getByTestId("data").textContent!).settings[key],
+    ).toEqual([["own", "value"]]);
+    fireEvent.click(section.getByRole("button", { name: "清空并停止继承" }));
+    expect(section.getByText(/已清空：不继承/)).toBeInTheDocument();
+    expect(
+      JSON.parse(screen.getByTestId("data").textContent!).settings[key],
+    ).toEqual([]);
+    fireEvent.click(section.getByRole("button", { name: "恢复缺省" }));
+    expect(section.getByText(/未设置：继承/)).toBeInTheDocument();
+    expect(
+      JSON.parse(screen.getByTestId("data").textContent!).settings,
+    ).not.toHaveProperty(key);
+  }
 });
 
 it("adds variables without overwriting an existing generated name", () => {

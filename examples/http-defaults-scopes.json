@@ -59,6 +59,7 @@
         },
         {
           "type": "loop",
+          "name": "内层配置覆盖验证",
           "count": 1,
           "children": [
             {
@@ -78,6 +79,7 @@
             },
             {
               "type": "http_defaults",
+              "name": "查询接口默认配置",
               "settings": {
                 "path": "/examples/query",
                 "query": [
@@ -143,12 +145,14 @@
         },
         {
           "type": "http_defaults",
+          "name": "较早的路径配置",
           "settings": {
             "path": "/not-used"
           }
         },
         {
           "type": "http_defaults",
+          "name": "最终生效的组内配置",
           "settings": {
             "path": "/examples/items/42",
             "query": []

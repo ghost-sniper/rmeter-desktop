@@ -11,7 +11,7 @@ export type Matcher<T> =
   | { type: "equals"; expected: T }
   | { type: "regex"; pattern: string }
   | { type: "exists" | "not_exists" };
-export type ResponseAssertion =
+export type ResponseAssertion = { enabled?: boolean } & (
   | {
       type?: "json";
       name: string;
@@ -27,7 +27,8 @@ export type ResponseAssertion =
       selection?: Selection;
       namespaces?: Record<string, string>;
     }
-  | { type: "regex"; name: string; pattern: string; invert?: boolean };
+  | { type: "regex"; name: string; pattern: string; invert?: boolean }
+);
 
 const record = (value: unknown): value is ObjectValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -58,6 +59,8 @@ export function inspectAssertions(value: Json, path: string, issues: string[]) {
       return;
     }
     const type = entry.type === undefined ? "json" : entry.type;
+    if (own(entry, "enabled") && typeof entry.enabled !== "boolean")
+      issues.push(`${at}.enabled 必须是布尔值`);
     if (type !== "json" && type !== "xml" && type !== "regex") {
       issues.push(`${at} 不支持的断言类型：${String(type)}`);
       return;
@@ -69,7 +72,8 @@ export function inspectAssertions(value: Json, path: string, issues: string[]) {
           ? ["type", "name", "path", "matcher", "selection"]
           : ["type", "name", "xpath", "matcher", "selection", "namespaces"];
     for (const key of Object.keys(entry)) {
-      if (!keys.includes(key)) issues.push(`${at}.${key} 暂不支持`);
+      if (key !== "enabled" && !keys.includes(key))
+        issues.push(`${at}.${key} 暂不支持`);
     }
     for (const key of [
       "name",
