@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "test": "vitest run",
+    "test:integration": "bun scripts/test-integration.ts",
     "test:watch": "vitest",
     "prepare:worker": "bun scripts/prepare-worker.ts",
     "desktop:dev": "bun run prepare:worker && bun run dev",

@@ -1,0 +1,258 @@
+{
+  "version": 1,
+  "name": "Mock Studio 与 ipds_dev 八组件联动测试",
+  "variables": {
+    "visitor": "rmeter"
+  },
+  "defaults": {
+    "request_timeout_ms": 5000,
+    "use_system_proxy": false,
+    "save_response_body": true
+  },
+  "groups": [
+    {
+      "name": "双用户联动",
+      "users": 2,
+      "ramp_up_ms": 100,
+      "iterations": 1,
+      "max_duration_ms": 30000,
+      "on_error": "stop_user",
+      "children": [
+        {
+          "type": "jdbc_connection_configuration",
+          "name": "ipds_dev 只读查询",
+          "variable_name": "db",
+          "url": "postgresql://106.54.164.19:25432/ipds_dev?sslmode=disable",
+          "username": "postgres",
+          "password_env": "RMETER_INTEGRATION_DB_PASSWORD",
+          "max_connections": 2,
+          "connect_timeout_ms": 5000,
+          "acquire_timeout_ms": 5000
+        },
+        {
+          "type": "jdbc_request",
+          "name": "JDBC initialize",
+          "connection": "db",
+          "query_type": "select",
+          "sql": "SELECT current_database()::text AS database, current_user::text AS username, $1::integer AS item_id",
+          "parameters": [42],
+          "query_timeout_ms": 5000,
+          "max_rows": 1,
+          "max_result_bytes": 4096,
+          "save_response_body": true,
+          "result_variable": "db_result",
+          "row_count_variable": "db_rows"
+        },
+        {
+          "type": "javascript",
+          "name": "JavaScript initialize",
+          "script": "const result = JSON.parse(vars.get('db_result')); if (vars.get('db_rows') !== '1' || result.rows[0][0] !== 'ipds_dev' || result.rows[0][1] !== 'postgres' || result.rows[0][2] !== 42) throw new Error('Unexpected JDBC identity or bound parameter'); vars.put('item_id', String(result.rows[0][2])); vars.put('step', '0'); vars.put('again', 'true');",
+          "timeout_ms": 1000,
+          "max_variable_bytes": 65536
+        },
+        {
+          "type": "if",
+          "name": "数据库校验通过后执行 Mock",
+          "condition": "${again}",
+          "evaluate_all": true,
+          "children": [
+            {
+              "type": "loop",
+              "count": 2,
+              "children": [
+                {
+                  "type": "http_request",
+                  "name": "HTTP hello",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/hello/test",
+                  "body": {
+                    "type": "json",
+                    "value": {
+                      "name": "${visitor}",
+                      "age": 20,
+                      "email": "rmeter@example.test"
+                    }
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP order success",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/order",
+                  "body": {
+                    "type": "json",
+                    "value": {
+                      "product_name": "rmeter mock test",
+                      "product_id": 42,
+                      "order_id": "rmeter-integration",
+                      "count": 1,
+                      "buyer_account": "rmeter-test",
+                      "pay_method": "Alipay"
+                    }
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP order UnionPay",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/order",
+                  "body": {
+                    "type": "json",
+                    "value": {
+                      "product_name": "rmeter mock test",
+                      "product_id": 42,
+                      "order_id": "rmeter-integration",
+                      "count": 1,
+                      "buyer_account": "rmeter-test",
+                      "pay_method": "UnionPay"
+                    }
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP XML path",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/query/${item_id}",
+                  "body": {
+                    "type": "text",
+                    "value": "<information>\n<id>12</id>\n</information>"
+                  },
+                  "settings": {
+                    "headers": [["Content-Type", "application/xml"]]
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP JSONPath",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/examples/jsonpath",
+                  "body": {
+                    "type": "json",
+                    "value": {
+                      "orders": [
+                        {
+                          "qty": 2,
+                          "status": "paid"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP XPath",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/examples/xpath",
+                  "body": {
+                    "type": "text",
+                    "value": "<o:order xmlns:o=\"urn:orders\"><o:status>paid</o:status></o:order>"
+                  },
+                  "settings": {
+                    "headers": [["Content-Type", "application/xml"]]
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP query",
+                  "method": "GET",
+                  "url": "http://127.0.0.1:9080/examples/query",
+                  "settings": {
+                    "query": [
+                      ["status", "paid"],
+                      ["source", "web"]
+                    ]
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP path",
+                  "method": "GET",
+                  "url": "http://127.0.0.1:9080/examples/items/${item_id}"
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP regex",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/examples/regex",
+                  "body": {
+                    "type": "json",
+                    "value": {
+                      "code": "AB-42"
+                    }
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP JSON template",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/examples/template/json",
+                  "body": {
+                    "type": "json",
+                    "value": {
+                      "name": "${visitor}"
+                    }
+                  }
+                },
+                {
+                  "type": "http_request",
+                  "name": "HTTP XML template",
+                  "method": "POST",
+                  "url": "http://127.0.0.1:9080/examples/template/xml",
+                  "body": {
+                    "type": "text",
+                    "value": "<request><name>${visitor}</name></request>"
+                  },
+                  "settings": {
+                    "headers": [["Content-Type", "application/xml"]]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "while",
+          "name": "变量控制两次参数查询",
+          "condition": "${again}",
+          "children": [
+            {
+              "type": "jdbc_request",
+              "name": "JDBC while parameter",
+              "connection": "db",
+              "query_type": "select",
+              "sql": "SELECT $1::integer AS step, $2::text AS marker",
+              "parameters": ["${step}", "${visitor}"],
+              "query_timeout_ms": 5000,
+              "max_rows": 1,
+              "max_result_bytes": 4096,
+              "save_response_body": true,
+              "result_variable": "step_result",
+              "row_count_variable": "db_rows"
+            },
+            {
+              "type": "javascript",
+              "name": "JavaScript advance",
+              "script": "const result = JSON.parse(vars.get('step_result')); const step = Number(vars.get('step')); if (result.row_count !== 1 || result.rows[0][0] !== step || result.rows[0][1] !== 'rmeter') throw new Error('JDBC parameter or variable mismatch'); vars.put('step', String(step + 1)); vars.put('again', step + 1 < 2 ? 'true' : 'false');",
+              "timeout_ms": 1000,
+              "max_variable_bytes": 65536
+            }
+          ]
+        },
+        {
+          "type": "if",
+          "name": "While 退出后跳过",
+          "condition": "${again}",
+          "children": [
+            {
+              "type": "javascript",
+              "name": "MUST NOT RUN",
+              "script": "throw new Error('False IF was executed');",
+              "timeout_ms": 1000,
+              "max_variable_bytes": 65536
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

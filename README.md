@@ -93,6 +93,43 @@ cargo test --manifest-path src-tauri/Cargo.toml jdbc_parameters_updates_scopes_e
 
 测试覆盖参数化查询、更新、连接作用域、查询错误和取消，不应指向生产数据库。`sslmode=disable` 仅用于本机隔离实例。
 
+### Mock Studio 与指定 ipds_dev 的八组件验收
+
+`examples/mock-jdbc-all-components.json` 是可在桌面直接打开、编辑和运行的原生脚本，覆盖全部八类组件。HTTP 使用 `http://127.0.0.1:9080/viewer` 目录中的实际 mock 路由；JDBC 使用 `106.54.164.19:25432/ipds_dev`，用户名 `postgres`，密码仅从 `RMETER_INTEGRATION_DB_PASSWORD` 环境变量读取。该服务器实际不支持 SSL，因此此验收连接明确设置 `sslmode=disable`。所有 SQL 均为只读 SELECT，只查询连接身份、常量及绑定参数，不读取业务表或修改数据。
+
+通过 Bun 运行可复现验收（需先启动已有 Mock Studio 服务）：
+
+```powershell
+$dbSecret = Read-Host 'ipds_dev 密码' -AsSecureString
+$env:RMETER_INTEGRATION_DB_PASSWORD = [System.Net.NetworkCredential]::new('', $dbSecret).Password
+try {
+    bun run test:integration
+} finally {
+    Remove-Item Env:RMETER_INTEGRATION_DB_PASSWORD -ErrorAction SilentlyContinue
+    Remove-Variable dbSecret
+}
+```
+
+若在桌面运行此脚本，需从已设置该环境变量的终端启动桌面程序，让宿主继承变量。独立启动的旧进程不会读取后来设置的环境变量。
+
+验收入口先读取只读 mock 目录快照，准备同 tag 的 JavaScript worker，再通过桌面实际使用的任务适配器执行。测试默认忽略，普通 `cargo test` 不访问此远程数据库。目录快照及本次采样响应保存在已忽略的 `.cache/integration/`；密码不写入脚本、报告或 Git。
+
+2026-11-11 实测通过（catalog generation 1）：
+
+| 验收项 | 结果 |
+| --- | --- |
+| 线程组 | 2 个用户，各 1 次迭代；每用户独立完成 28 次采样 |
+| JDBC 配置 / 采样器 | 连接池配置生效；6 次参数化 SELECT，验证数据库、用户和返回值 |
+| JavaScript | 6 次采样；验证 JDBC 结果，写入 HTTP 路径变量及 While 计数变量 |
+| IF | 真分支执行，While 结束后假分支跳过 |
+| Loop | 每用户重复 2 次完整 mock 请求集合 |
+| While | 每用户执行 2 轮参数查询和变量递增，然后退出 |
+| HTTP | 44 次请求；全部 10 个路由、11 条规则的状态码和正文逐一匹配 |
+| 任务生命周期 | 单一正常终态，runId 一致，结束后释放活动任务 |
+| 合计 | **56 成功 / 0 失败** |
+
+HTTP 覆盖 `/hello/test` 模板、`/order` 成功及 UnionPay 分支、`/query/42` XML 匹配，以及 `/examples/` 下的 JSONPath、XPath、query、items/42、regex、JSON/XML 模板。UnionPay 规则的 HTTP 状态为 200、业务码为 400，测试明确核对该预期拒绝正文。结果断言由验收代码完成，示例不引入桌面尚不支持的断言或后置处理组件。前端测试另行验证此脚本包含全部组件且可无损打开保存。
+
 ## 代码边界
 
 `src/model.ts` 管理原生 JSON 与编辑树；`NodeForm.tsx` 提供组件表单；`results.ts` 限制展示缓存；`App.tsx` 负责桌面交互。

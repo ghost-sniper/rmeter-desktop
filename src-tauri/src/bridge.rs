@@ -16,6 +16,9 @@ use tauri::ipc::Channel;
 use tokio::sync::{mpsc, watch};
 
 const PREVIEW_BYTES: usize = 64 * 1024;
+#[cfg(test)]
+mod integration_tests;
+
 static NEXT_RUN: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone)]

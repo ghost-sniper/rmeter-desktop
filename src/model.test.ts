@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import allComponents from "../examples/mock-jdbc-all-components.json";
 import {
   allowed,
   cloneNode,
@@ -14,6 +15,25 @@ import {
 } from "./model";
 
 describe("native script model", () => {
+  it("opens and losslessly saves the real mock/JDBC acceptance script with all eight components", () => {
+    const document = parseDocument(JSON.stringify(allComponents));
+    expect(document.issues).toEqual([]);
+    expect(JSON.parse(stringify(document.root))).toEqual(allComponents);
+    expect(new Set(flatten(document.root).map((node) => node.kind))).toEqual(
+      new Set([
+        "plan",
+        "group",
+        "loop",
+        "if",
+        "while",
+        "http_request",
+        "jdbc_request",
+        "javascript",
+        "jdbc_connection_configuration",
+      ]),
+    );
+    expect(stringify(document.root)).not.toContain('"password":');
+  });
   it("protects unsafe numbers, malformed pair rows, and unknown nested settings", () => {
     const make = (settings: unknown) =>
       parseDocument(
