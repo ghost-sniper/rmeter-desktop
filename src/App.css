@@ -127,16 +127,11 @@ h3 {
   font-weight: 650;
 }
 .brand-mark {
-  background: #263e5c;
-  color: white;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -1px;
-  padding: 2px 5px 4px;
-  border-radius: 5px;
-}
-.brand-mark span {
-  color: #85bfef;
+  display: block;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  object-fit: contain;
 }
 .version {
   font-size: 9px;

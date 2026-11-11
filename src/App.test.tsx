@@ -711,3 +711,55 @@ it.each(["jdbc_request", "javascript"] as const)(
       ).not.toBeInTheDocument();
   },
 );
+
+it.each([
+  ["固定定时器", "constant_timer", "线程延迟（ms）"],
+  ["高斯随机定时器", "gaussian_random_timer", "固定延迟偏移（ms）"],
+])(
+  "adds %s from the timer submenu and saves/reopens its configuration",
+  async (label, kind, field) => {
+    mock.save.mockResolvedValue("C:/timers.json");
+    const view = render(<App />);
+    fireEvent.contextMenu(screen.getByRole("treeitem", { name: /线程组/ }));
+    fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "定时器" }));
+    const menu = screen.getByRole("menu", { name: "定时器" });
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(2);
+    fireEvent.click(
+      within(menu).getByRole("menuitem", { name: new RegExp(label) }),
+    );
+    fireEvent.change(screen.getByLabelText(/^名称/), {
+      target: { value: "等待组件" },
+    });
+    fireEvent.change(screen.getByLabelText(field + " *"), {
+      target: { value: "25" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "启用组件" }));
+    fireEvent.click(screen.getByTitle("保存 (Ctrl+S)"));
+    await waitFor(() =>
+      expect(mock.invoke).toHaveBeenCalledWith(
+        "write_script",
+        expect.anything(),
+      ),
+    );
+    const source = mock.invoke.mock.calls.find(
+      ([command]) => command === "write_script",
+    )![1].source;
+    expect(JSON.parse(source).groups[0].children[0]).toMatchObject({
+      type: kind,
+      name: "等待组件",
+      enabled: false,
+    });
+    view.unmount();
+    mock.open.mockResolvedValue("C:/timers.json");
+    mock.invoke.mockImplementation(async (command) =>
+      command === "read_script" ? source : undefined,
+    );
+    render(<App />);
+    fireEvent.click(screen.getByTitle("打开 (Ctrl+O)"));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /等待组件/ }));
+    expect(screen.getByLabelText(field + " *")).toHaveValue("25");
+    expect(
+      screen.getByRole("checkbox", { name: "启用组件" }),
+    ).not.toBeChecked();
+  },
+);

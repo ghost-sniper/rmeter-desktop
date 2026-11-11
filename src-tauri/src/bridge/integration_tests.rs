@@ -4,6 +4,54 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 #[tokio::test]
+#[ignore = "requires Mock Studio and RMETER_INTEGRATION_DB_PASSWORD for ipds_dev"]
+async fn scoped_timers_delay_http_jdbc_and_javascript_without_extra_samples() {
+    configure_worker().unwrap();
+    let source = serde_json::from_str(include_str!("../../../examples/timers.json")).unwrap();
+    let (status, summary, events) = super::tests::collect(source).await;
+    assert_eq!(status, "completed");
+    assert_eq!(summary.samples, 12);
+    assert_eq!(summary.passed, 12);
+    let mut previous = BTreeMap::<usize, (u64, f64)>::new();
+    let mut counts = BTreeMap::<usize, usize>::new();
+    for preview in events {
+        if let ReportEvent::SampleCompleted {
+            user_index,
+            started_at_ms,
+            elapsed_ms,
+            label,
+            success,
+            response_message,
+            ..
+        } = preview.event
+        {
+            assert!(success, "{label}: {response_message:?}");
+            if let Some((last_start, last_elapsed)) =
+                previous.insert(user_index, (started_at_ms, elapsed_ms))
+            {
+                let minimum = if label.starts_with("JDBC") {
+                    75.0
+                } else if label.starts_with("JavaScript") {
+                    60.0
+                } else {
+                    50.0
+                };
+                let gap = started_at_ms.saturating_sub(last_start) as f64 - last_elapsed;
+                assert!(
+                    gap >= minimum - 5.0,
+                    "{label}: waiting gap {gap}ms, expected at least {minimum}ms"
+                );
+            }
+            *counts.entry(user_index).or_default() += 1;
+        }
+    }
+    assert_eq!(counts.into_values().collect::<Vec<_>>(), vec![6, 6]);
+    println!(
+        "Scoped timers passed: 12 successful HTTP/JDBC/JavaScript samples; per-user waiting gaps verified; no extra samples."
+    );
+}
+
+#[tokio::test]
 #[ignore = "requires the user-provided Mock Studio on 127.0.0.1:9080"]
 async fn http_default_configuration_scopes() {
     let source =

@@ -1,8 +1,10 @@
 # rmeter desktop
 
-基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的固定提交 **5028c0025556a772e2fb09a3337100e17d06a759**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用、JDBC 整表/按列结果变量、JavaScript 前后置处理器及五种 HTTP 提取器）。
+基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的固定提交 **1e2b1770edacbd150b6f4e30fb9576bf58ba9af5**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用、JDBC 整表/按列结果变量、JavaScript 前后置处理器、五种 HTTP 提取器及固定/高斯随机定时器）。
 
 ## 开发与构建
+
+项目 Logo 原图和生成说明见 [assets/branding/README.md](assets/branding/README.md)。运行 `bun run prepare:icons` 可同步生成桌面应用图标、界面 Logo 和浏览器 favicon。
 
 需要 Bun、Rust stable、Windows MSVC C++ 工具链和 WebView2。Windows 为首版验收平台。
 
@@ -155,6 +157,25 @@ HTTP 采样器的“后置处理器”菜单支持 JSONPath、XPath、JMESPath�
 原生 JSON 保存在 HTTP 的 `post_processors` 数组中，type 分别为 `jsonpath_extractor`、`xpath_extractor`、`jmespath_extractor`、`regex_extractor`、`xpath2_extractor`；五种类型均使用 `expression` 字段。未知组件或无法无损编辑的数据仍只读保护。
 
 `examples/http-extractors.json` 对接本地 Mock Studio，验证五种提取器、JavaScript 混排、禁用草稿、变量传递和后续 HTTP 请求。2 用户 × 2 迭代，共 12 次成功采样、20 次提取和 4 次 JavaScript 检查；已纳入 `bun run test:integration`。
+
+## 定时器
+
+右键“定时器”菜单提供“固定定时器”和“高斯随机定时器”，支持命名、启用/禁用、复制、移动及保存重开。
+
+| 组件           | 配置                                               | 延迟计算                                            |
+| -------------- | -------------------------------------------------- | --------------------------------------------------- |
+| 固定定时器     | 线程延迟（ms），默认 300                           | 每次等待指定毫秒数                                  |
+| 高斯随机定时器 | 偏差（ms），默认 100；固定延迟偏移（ms），默认 300 | `abs(N(0,1) × 偏差 + 偏移)`，截去小数，每次独立抽样 |
+
+按 [JMeter 定时器规则](https://jmeter.apache.org/usermanual/component_reference.html#Timers)，可放在测试计划、线程组、Loop/IF/While 或任意采样器下。作用域内每个采样器都会等待，同级排列位置不影响作用域；放在采样器下仅影响该采样器。外层、当前层和采样器自身的定时器累加执行，不覆盖；多个用户独立等待。空作用域、未进入的条件分支及禁用组件不等待。
+
+执行顺序为前置处理器 → 定时器 → 采样器 → 后置处理器 → 断言。等待不计入采样响应耗时，也不生成独立结果，但计入线程组最长运行时间；停止、窗口退出和通道断开可取消等待。仅使用定时器的 HTTP/JDBC 脚本不依赖 worker。
+
+延迟和偏移使用非负整数毫秒，偏差允许小数；参数及计算结果上限为 9007199254740991 ms。参数支持 `${变量名}`，读取前置处理器执行后的当前用户变量；不支持 JMeter 函数或 `timer.factor` 属性。静态非法值在执行校验时报告；动态变量缺失或非法时父采样失败，返回 `TimerError`，不发送请求，跳过后续处理并遵循线程组错误策略。
+
+原生类型为 `constant_timer`（`name`、`delay_ms`）和 `gaussian_random_timer`（`name`、`deviation_ms`、`offset_ms`）。测试计划/采样器放在 `timers` 数组，线程组/控制器放在 `children` 数组，均可添加 `enabled`。缺省/空数组、字符串变量表达式、禁用草稿和声明顺序均保留。
+
+`examples/timers.json` 使用本地 Mock HTTP、只读 JDBC 和 JavaScript 验证全局、线程组与采样器定时器，2 用户 × 2 轮共 12 次采样。已纳入 `bun run test:integration`，通过用户内相邻采样时间（扣除响应耗时）检查等待间隔；数据库密码从 `RMETER_INTEGRATION_DB_PASSWORD` 环境变量读取。
 
 ## JDBC 结果变量
 

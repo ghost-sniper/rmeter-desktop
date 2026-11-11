@@ -891,6 +891,42 @@ mod tests {
         );
     }
     #[tokio::test]
+    async fn stopping_timer_wait_sends_no_request_and_allows_next_run() {
+        let server = http_fixture(200, vec![]).await;
+        let source = plan(json!([
+            request(&server.url),
+            {"type":"constant_timer","name":"long wait","delay_ms":60000}
+        ]));
+        let (stop, mut cancel) = watch::channel(false);
+        let mut summary = RunSummary::default();
+        let mut pending = Vec::new();
+        let stop_task = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            stop.send(true).unwrap();
+        });
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            execute(
+                source.to_string(),
+                "timer",
+                &mut cancel,
+                &mut |_| true,
+                &mut summary,
+                &mut pending,
+            ),
+        )
+        .await
+        .unwrap();
+        stop_task.await.unwrap();
+        assert_eq!(result.0, "cancelled");
+        assert_eq!(summary.samples, 0);
+        assert_eq!(server.requests.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            collect(plan(json!([request(&server.url)]))).await.1.passed,
+            1
+        );
+    }
+    #[tokio::test]
     async fn javascript_variables_drive_while_and_if_and_surface_errors() {
         configure_worker().unwrap();
         let server = http_fixture(200, b"ok".to_vec()).await;
@@ -919,6 +955,12 @@ mod tests {
             plan(json!([{"type":"javascript","name":"js","script":"vars.put('x', '1');"}]));
         assert!(rmeter::parse_script(&script.to_string()).is_err());
         assert!(rmeter::parse_script(&plan(json!([])).to_string()).is_ok());
+        assert!(rmeter::parse_script(&plan(json!([
+            {"type":"http_request","name":"HTTP","url":"http://localhost", "timers":[
+                {"type":"constant_timer","name":"pause","delay_ms":1},
+                {"type":"gaussian_random_timer","name":"random","deviation_ms":1,"offset_ms":1}
+            ]}
+        ])).to_string()).is_ok());
     }
     #[test]
     fn absent_worker_is_reported_without_disabling_other_components() {

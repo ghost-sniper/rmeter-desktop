@@ -8,6 +8,7 @@ import {
   ObjectValue,
   allowed,
   isProcessor,
+  isSampler,
   sameProcessorPhase,
   extractorKinds,
   orderChildren,
@@ -40,6 +41,7 @@ const componentMenus: { label: string; kinds: Kind[] }[] = [
   },
   { label: "采样器", kinds: ["http_request", "jdbc_request", "javascript"] },
   { label: "逻辑控制器", kinds: ["loop", "while", "if"] },
+  { label: "定时器", kinds: ["constant_timer", "gaussian_random_timer"] },
   { label: "前置处理器", kinds: ["javascript_preprocessor"] },
   {
     label: "后置处理器",
@@ -112,6 +114,7 @@ export default function App() {
   const running = ["starting", "running", "stopping"].includes(runState);
   const disabled = readonly || busy || running;
   const node = findNode(document.root, selected) ?? document.root;
+  const showSource = node.kind === "plan" && (tab === "source" || readonly);
   const allNodes = useMemo(() => flatten(document.root), [document.root]);
   const parent = parentOf(document.root, node.id);
   const selectedRow = results.rows.find((row) => row.id === selectedResult);
@@ -579,9 +582,13 @@ export default function App() {
     >
       <header className="app-header">
         <div className="brand">
-          <span className="brand-mark">
-            r<span>m</span>
-          </span>
+          <img
+            className="brand-mark"
+            src="/rmeter-logo.png"
+            alt=""
+            width={32}
+            height={32}
+          />
           <strong>rmeter</strong>
           <span className="version">DESKTOP</span>
         </div>
@@ -776,7 +783,7 @@ export default function App() {
                   disabled ||
                   !parent ||
                   parent.children[0].id === node.id ||
-                  (isProcessor(node.kind) &&
+                  (isSampler(parent.kind) &&
                     !sameProcessorPhase(
                       node.kind,
                       parent.children[
@@ -794,7 +801,7 @@ export default function App() {
                   disabled ||
                   !parent ||
                   parent.children[parent.children.length - 1].id === node.id ||
-                  (isProcessor(node.kind) &&
+                  (isSampler(parent.kind) &&
                     !sameProcessorPhase(
                       node.kind,
                       parent.children[
@@ -895,18 +902,20 @@ export default function App() {
           </div>
           <div className="tabs">
             <button
-              className={tab === "form" ? "selected" : ""}
+              className={!showSource ? "selected" : ""}
               disabled={readonly}
               onClick={() => setTab("form")}
             >
               节点配置
             </button>
-            <button
-              className={tab === "source" ? "selected" : ""}
-              onClick={() => setTab("source")}
-            >
-              脚本预览 <span>JSON</span>
-            </button>
+            {node.kind === "plan" && (
+              <button
+                className={showSource ? "selected" : ""}
+                onClick={() => setTab("source")}
+              >
+                脚本预览 <span>JSON</span>
+              </button>
+            )}
             {busy && <span className="working">正在处理…</span>}
             {running && <span className="working">运行期间配置已锁定</span>}
           </div>
@@ -934,8 +943,10 @@ export default function App() {
                 处输入格式待修正。切换节点不会丢失输入；修正后即可保存和运行。
               </div>
             )}
-            {tab === "source" || readonly ? (
+            {showSource ? (
               <pre className="source-preview">{source}</pre>
+            ) : readonly ? (
+              <p>请选择测试计划节点查看原始 JSON。</p>
             ) : (
               <NodeForm
                 node={node}

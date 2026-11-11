@@ -10,6 +10,7 @@
     "test:integration": "bun scripts/test-integration.ts",
     "test:watch": "vitest",
     "prepare:worker": "bun scripts/prepare-worker.ts",
+    "prepare:icons": "bun scripts/prepare-icons.ts",
     "desktop:dev": "bun run prepare:worker && bun run dev",
     "desktop:build": "bun run prepare:worker && bun run build",
     "preview": "vite preview",

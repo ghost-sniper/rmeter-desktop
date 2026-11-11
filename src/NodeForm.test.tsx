@@ -314,3 +314,23 @@ it("edits extractor match numbers, defaults and namespace drafts without losing 
     JSON.parse(screen.getByTestId("data").textContent!).namespaces,
   ).toEqual({ ns: "urn:test" });
 });
+
+it("edits gaussian fractional deviation and variable delays while retaining invalid numeric drafts", () => {
+  render(<Harness initial={createNode("gaussian_random_timer")} />);
+  const deviation = screen.getByLabelText(/偏差（ms）/),
+    offset = screen.getByLabelText(/固定延迟偏移/);
+  fireEvent.change(deviation, { target: { value: "12.5" } });
+  fireEvent.change(offset, { target: { value: "${pause}" } });
+  expect(JSON.parse(screen.getByTestId("data").textContent!)).toMatchObject({
+    deviation_ms: 12.5,
+    offset_ms: "${pause}",
+  });
+  fireEvent.change(offset, { target: { value: "-1" } });
+  expect(offset).toHaveValue("-1");
+  expect(screen.getByText(/请输入非负安全整数/)).toBeInTheDocument();
+  expect(JSON.parse(screen.getByTestId("data").textContent!).offset_ms).toBe(
+    "${pause}",
+  );
+  fireEvent.change(offset, { target: { value: "0" } });
+  expect(JSON.parse(screen.getByTestId("data").textContent!).offset_ms).toBe(0);
+});

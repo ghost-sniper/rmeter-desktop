@@ -1,4 +1,5 @@
 import extractorExample from "../examples/http-extractors.json";
+import timersExample from "../examples/timers.json";
 import { extractorKinds, isPostProcessor } from "./model";
 import processors from "../examples/javascript-processors.json";
 import { describe, expect, it } from "vitest";
@@ -21,6 +22,11 @@ import {
 } from "./model";
 
 describe("native script model", () => {
+  it("round-trips the timer integration example", () => {
+    const document = parseDocument(JSON.stringify(timersExample));
+    expect(document.issues).toEqual([]);
+    expect(serializeNode(document.root)).toEqual(timersExample);
+  });
   it("preserves enabled flags, disabled subtrees and assertions across save and copy", () => {
     const source = structuredClone(httpScopes);
     const root = parseDocument(JSON.stringify(source)).root;
@@ -529,4 +535,135 @@ it("opens and saves all HTTP extractors in the integration example without loss"
   const doc = parseDocument(JSON.stringify(extractorExample));
   expect(doc.issues).toEqual([]);
   expect(serializeNode(doc.root)).toEqual(extractorExample);
+});
+
+it("round-trips scoped and sampler timers without changing values or absent arrays", () => {
+  const constant = {
+    type: "constant_timer",
+    name: "固定",
+    delay_ms: "${delay}",
+  };
+  const gaussian = {
+    type: "gaussian_random_timer",
+    name: "高斯",
+    deviation_ms: 12.5,
+    offset_ms: 0,
+    enabled: false,
+  };
+  const source = {
+    version: 1,
+    name: "计划",
+    timers: [constant],
+    groups: [
+      {
+        name: "组",
+        children: [
+          gaussian,
+          { type: "loop", name: "循环", count: 2, children: [constant] },
+          {
+            type: "http_request",
+            name: "HTTP",
+            url: "http://localhost",
+            timers: [gaussian],
+            pre_processors: [],
+            post_processors: [],
+          },
+          {
+            type: "jdbc_request",
+            name: "SQL",
+            connection: "db",
+            sql: "SELECT 1",
+            timers: [constant],
+          },
+          { type: "javascript", name: "JS", script: "", timers: [] },
+        ],
+      },
+    ],
+  };
+  const doc = parseDocument(JSON.stringify(source));
+  expect(doc.issues).toEqual([]);
+  expect(serializeNode(doc.root)).toEqual(source);
+  expect(stringify(cloneNode(doc.root))).toBe(stringify(doc.root));
+  expect(serializeNode(newDocument().root)).not.toHaveProperty("timers");
+});
+it("allows timers in scopes and samplers but not under processors or configuration leaves", () => {
+  for (const kind of ["constant_timer", "gaussian_random_timer"] as const) {
+    for (const parent of [
+      "plan",
+      "group",
+      "loop",
+      "if",
+      "while",
+      "http_request",
+      "jdbc_request",
+      "javascript",
+    ] as const)
+      expect(allowed(parent, kind)).toBe(true);
+    for (const parent of [
+      "http_defaults",
+      "jdbc_connection_configuration",
+      "javascript_preprocessor",
+      "jsonpath_extractor",
+      kind,
+    ] as const)
+      expect(allowed(parent, kind)).toBe(false);
+  }
+  const root = newDocument().root,
+    group = root.children[0];
+  const sampler = createNode("http_request"),
+    pre = createNode("javascript_preprocessor"),
+    timer = createNode("constant_timer"),
+    post = createNode("javascript_postprocessor");
+  sampler.children = [pre, timer, post];
+  group.children = [sampler];
+  expect(reorderNode(root, timer.id, -1)).toBe(root);
+  expect(reorderNode(root, timer.id, 1)).toBe(root);
+  const moved = moveNode(root, timer.id, group.id);
+  expect(moved.children[0].children.map((n) => n.kind)).toEqual([
+    "http_request",
+    "constant_timer",
+  ]);
+  expect(reorderNode(moved, timer.id, -1).children[0].children[0].kind).toBe(
+    "constant_timer",
+  );
+});
+it("protects malformed timer lists and processors misplaced in timer arrays", () => {
+  for (const timers of [
+    null,
+    {},
+    [{ type: "javascript", name: "wrong", script: "" }],
+    [{ type: "constant_timer", name: "bad", delay_ms: null }],
+  ]) {
+    const source = {
+      version: 1,
+      name: "p",
+      groups: [
+        { name: "g", children: [{ type: "http_request", name: "h", timers }] },
+      ],
+    };
+    expect(parseDocument(JSON.stringify(source)).issues.length).toBeGreaterThan(
+      0,
+    );
+  }
+  const source = {
+    version: 1,
+    name: "p",
+    groups: [
+      {
+        name: "g",
+        children: [
+          {
+            type: "http_request",
+            name: "h",
+            post_processors: [
+              { type: "constant_timer", name: "bad", delay_ms: 0 },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  expect(parseDocument(JSON.stringify(source)).issues.length).toBeGreaterThan(
+    0,
+  );
 });

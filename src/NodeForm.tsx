@@ -10,6 +10,7 @@ import {
   object,
   isJavaScriptProcessor,
   isExtractor,
+  isTimer,
 } from "./model";
 
 export interface Draft {
@@ -28,6 +29,8 @@ type Field = {
   path: string;
   label: string;
   type?:
+    | "duration"
+    | "deviation"
     | "integer"
     | "number"
     | "text"
@@ -78,6 +81,31 @@ const httpFields: Field[] = [
   { path: "use_system_proxy", label: "使用系统代理", type: "boolean" },
 ];
 const specificFields: Partial<Record<EditorNode["kind"], Field[]>> = {
+  constant_timer: [
+    {
+      path: "delay_ms",
+      label: "线程延迟（ms）",
+      type: "duration",
+      required: true,
+      hint: "每次采样前的固定等待时间；0 表示不等待。",
+    },
+  ],
+  gaussian_random_timer: [
+    {
+      path: "deviation_ms",
+      label: "偏差（ms）",
+      type: "deviation",
+      required: true,
+      hint: "标准差，可为小数；0 表示只等待固定偏移。",
+    },
+    {
+      path: "offset_ms",
+      label: "固定延迟偏移（ms）",
+      type: "duration",
+      required: true,
+      hint: "延迟 = |标准正态随机数 × 偏差 + 偏移|，截去小数；每次采样独立计算。",
+    },
+  ],
   group: [
     {
       path: "users",
@@ -262,6 +290,31 @@ function InputField({ field, ...props }: Props & { field: Field }) {
   const accept = (text: string) => {
     if (!text && !field.required && field.path !== "default_value") {
       change(undefined);
+      return;
+    }
+    if (field.type === "duration" || field.type === "deviation") {
+      if (text.includes("${")) {
+        change(text);
+        return;
+      }
+      const number = Number(text);
+      if (
+        !text.trim() ||
+        !Number.isFinite(number) ||
+        number < 0 ||
+        number > Number.MAX_SAFE_INTEGER ||
+        (field.type === "duration" && !Number.isInteger(number))
+      ) {
+        setDraft(key, {
+          text,
+          error:
+            field.type === "duration"
+              ? "请输入非负安全整数或 ${变量名}"
+              : "请输入非负数字或 ${变量名}",
+        });
+        return;
+      }
+      change(number);
       return;
     }
     if (field.type === "csv") {
@@ -840,6 +893,12 @@ export default function NodeForm(props: Props) {
               JavaScript
               或采样器使用。每次执行清理旧值；无匹配使用默认值，格式错误、超时或容量超限使父采样失败。默认值缺省或
               null 表示不设置基础变量，空字符串表示空默认值。
+            </p>
+          )}
+          {isTimer(node.kind) && (
+            <p className="field-hint">
+              在作用域内每次采样的前置处理器之后、采样开始之前暂停当前用户；多个定时器的延迟累加。放在采样器下仅影响该采样器。等待不计入响应耗时，不生成采样结果，停止可中断等待。支持
+              $&#123;变量名&#125;，不执行 JMeter 函数。
             </p>
           )}
           <div className="form-grid">

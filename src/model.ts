@@ -4,6 +4,8 @@ export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ObjectValue = { [key: string]: Json };
 export type Kind =
+  | "constant_timer"
+  | "gaussian_random_timer"
   | "plan"
   | "group"
   | "loop"
@@ -33,6 +35,8 @@ export interface Document {
   issues: string[];
 }
 export const labels: Record<Kind, string> = {
+  constant_timer: "固定定时器",
+  gaussian_random_timer: "高斯随机定时器",
   plan: "测试计划",
   group: "线程组",
   loop: "Loop 循环",
@@ -52,6 +56,8 @@ export const labels: Record<Kind, string> = {
   jdbc_connection_configuration: "JDBC 连接配置",
 };
 export const icons: Record<Kind, string> = {
+  constant_timer: "◷",
+  gaussian_random_timer: "◴",
   plan: "▤",
   group: "♙",
   loop: "↻",
@@ -106,6 +112,17 @@ function inspectEditable(
       if (own(data, key) && typeof data[key] !== "string")
         issues.push(`${path}.${key} 必须是字符串`);
     }
+  }
+  if (isTimer(kind)) {
+    if (own(data, "name") && typeof data.name !== "string")
+      issues.push(`${path}.name 必须是字符串`);
+    for (const key of ["delay_ms", "deviation_ms", "offset_ms"])
+      if (
+        own(data, key) &&
+        typeof data[key] !== "number" &&
+        typeof data[key] !== "string"
+      )
+        issues.push(`${path}.${key} 必须是数字或变量表达式`);
   }
   if (isExtractor(kind)) {
     for (const key of ["name", "variable_name", "expression", "template"]) {
@@ -203,6 +220,8 @@ const extractorFields = [
   "max_matches",
 ];
 const fields: Record<Kind, string[]> = {
+  constant_timer: ["type", "name", "delay_ms"],
+  gaussian_random_timer: ["type", "name", "deviation_ms", "offset_ms"],
   jsonpath_extractor: extractorFields,
   jmespath_extractor: extractorFields,
   xpath_extractor: [...extractorFields, "namespaces"],
@@ -214,6 +233,7 @@ const fields: Record<Kind, string[]> = {
     "variables",
     "defaults",
     "jdbc_connections",
+    "timers",
     "groups",
   ],
   group: [
@@ -237,6 +257,7 @@ const fields: Record<Kind, string[]> = {
     "settings",
     "body",
     "assertions",
+    "timers",
     "pre_processors",
     "post_processors",
     "max_assertion_body_bytes",
@@ -258,6 +279,7 @@ const fields: Record<Kind, string[]> = {
     "variable_names",
     "row_count_variable",
     "assertions",
+    "timers",
     "pre_processors",
     "post_processors",
   ],
@@ -267,6 +289,7 @@ const fields: Record<Kind, string[]> = {
     "script",
     "timeout_ms",
     "max_variable_bytes",
+    "timers",
     "pre_processors",
     "post_processors",
   ],
@@ -312,6 +335,9 @@ export function createNode(kind: Kind): EditorNode {
           }
         : { type: kind };
   if (kind !== "plan" && kind !== "group") data.name = labels[kind];
+  if (kind === "constant_timer") data.delay_ms = 300;
+  if (kind === "gaussian_random_timer")
+    Object.assign(data, { deviation_ms: 100, offset_ms: 300 });
   if (kind === "loop") data.count = 1;
   if (kind === "if" || kind === "while") data.condition = "${enabled}";
   if (kind === "http_request")
@@ -372,6 +398,8 @@ export function title(node: EditorNode): string {
     ? node.data.name || "（未命名）"
     : labels[node.kind];
 }
+export const isTimer = (kind: Kind) =>
+  ["constant_timer", "gaussian_random_timer"].includes(kind);
 export const isSampler = (kind: Kind) =>
   ["http_request", "jdbc_request", "javascript"].includes(kind);
 export const extractorKinds: Kind[] = [
@@ -391,15 +419,28 @@ export const isProcessor = (kind: Kind) =>
 export const sameProcessorPhase = (a: Kind, b?: Kind) =>
   b !== undefined &&
   ((isPostProcessor(a) && isPostProcessor(b)) ||
-    (a === "javascript_preprocessor" && b === a));
+    (a === "javascript_preprocessor" && b === a) ||
+    (isTimer(a) && isTimer(b)));
 // Native JSON has separate ordered pre/post arrays; show that execution order in the tree.
 export function orderChildren(children: EditorNode[]): EditorNode[] {
+  if (children.every((n) => isProcessor(n.kind) || isTimer(n.kind)))
+    return [
+      ...children.filter((n) => n.kind === "javascript_preprocessor"),
+      ...children.filter((n) => isTimer(n.kind)),
+      ...children.filter((n) => isPostProcessor(n.kind)),
+    ];
   return [
     ...children.filter((n) => !isPostProcessor(n.kind)),
     ...children.filter((n) => isPostProcessor(n.kind)),
   ];
 }
 export function allowed(parent: Kind, child: Kind): boolean {
+  if (isTimer(child))
+    return (
+      parent === "plan" ||
+      ["group", "loop", "if", "while"].includes(parent) ||
+      isSampler(parent)
+    );
   if (isExtractor(child)) return parent === "http_request";
   if (isSampler(parent)) return isJavaScriptProcessor(child);
   if (isProcessor(child)) return false;
@@ -520,6 +561,12 @@ export function serializeNode(
       if (processors.length || key in data) data[key] = processors;
     }
   }
+  if (node.kind === "plan" || isSampler(node.kind)) {
+    const timers = node.children
+      .filter((n) => isTimer(n.kind))
+      .map((n) => serializeNode(n));
+    if (timers.length || "timers" in data) data.timers = timers;
+  }
   if (globalConnection) delete data.type;
   else if (node.kind !== "plan" && node.kind !== "group")
     data.type = isJavaScriptProcessor(node.kind) ? "javascript" : node.kind;
@@ -590,7 +637,9 @@ export function parseDocument(source: string): Document {
         if (
           typeof k !== "string" ||
           !own(labels, k) ||
-          !allowed(kind, k as Kind)
+          !allowed(kind, k as Kind) ||
+          (key === "timers" && !isTimer(k as Kind)) ||
+          (key === "post_processors" && !isPostProcessor(k as Kind))
         ) {
           issues.push(`${path}.${key}[${i}] 不支持的组件：${String(k)}`);
           return [];
@@ -610,6 +659,7 @@ export function parseDocument(source: string): Document {
               "jdbc_connections",
             )
           : []),
+        ...("timers" in data ? children(data.timers, undefined, "timers") : []),
         ...children(data.groups, "group", "groups"),
       ];
     } else if (["group", "loop", "if", "while"].includes(kind))
@@ -623,6 +673,7 @@ export function parseDocument(source: string): Document {
               "pre_processors",
             )
           : []),
+        ...("timers" in data ? children(data.timers, undefined, "timers") : []),
         ...("post_processors" in data
           ? children(data.post_processors, undefined, "post_processors")
           : []),

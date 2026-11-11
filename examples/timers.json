@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "name": "固定与高斯定时器联动",
+  "defaults": {
+    "use_system_proxy": false,
+    "request_timeout_ms": 5000,
+    "save_response_body": false
+  },
+  "jdbc_connections": [
+    {
+      "name": "ipds_dev 只读连接",
+      "variable_name": "db",
+      "url": "postgresql://106.54.164.19:25432/ipds_dev?sslmode=disable",
+      "username": "postgres",
+      "password_env": "RMETER_INTEGRATION_DB_PASSWORD",
+      "max_connections": 2,
+      "connect_timeout_ms": 5000,
+      "acquire_timeout_ms": 5000
+    }
+  ],
+  "groups": [
+    {
+      "name": "定时器双用户验证",
+      "users": 2,
+      "iterations": 2,
+      "max_duration_ms": 30000,
+      "on_error": "stop_user",
+      "children": [
+        {
+          "type": "http_request",
+          "name": "HTTP 处理器联动",
+          "url": "http://127.0.0.1:9080/examples/items/${item_id}",
+          "pre_processors": [
+            {
+              "type": "javascript",
+              "name": "准备 HTTP 参数",
+              "script": "vars.put('item_id','42'); log.info('HTTP pre user={} iteration={}', ctx.getThreadNum(), vars.getIteration());",
+              "timeout_ms": 1000
+            },
+            {
+              "type": "javascript",
+              "name": "已禁用的草稿",
+              "script": "invalid syntax (",
+              "timeout_ms": 1000,
+              "enabled": false
+            }
+          ],
+          "post_processors": [
+            {
+              "type": "javascript",
+              "name": "提取 HTTP 响应",
+              "script": "if (!prev.isSuccessful()) throw new Error('HTTP failed'); const data=JSON.parse(prev.getResponseDataAsString()); if(data.id !== 42) throw new Error('unexpected mock item'); vars.put('http_id',String(data.id)); log.info('HTTP post id={}', vars.get('http_id'));",
+              "timeout_ms": 1000
+            }
+          ],
+          "assertions": [
+            {
+              "type": "json",
+              "name": "Mock 商品 ID",
+              "path": "$.id",
+              "matcher": {
+                "type": "equals",
+                "expected": 42
+              }
+            }
+          ],
+          "timers": [
+            {
+              "type": "gaussian_random_timer",
+              "name": "HTTP 高斯等待",
+              "deviation_ms": 20,
+              "offset_ms": 50
+            }
+          ]
+        },
+        {
+          "type": "jdbc_request",
+          "name": "JDBC 处理器联动",
+          "connection": "db",
+          "sql": "SELECT $1::integer AS id, current_database()::text AS database",
+          "parameters": ["${query_id}"],
+          "query_timeout_ms": 5000,
+          "save_response_body": false,
+          "max_rows": 1,
+          "max_result_bytes": 4096,
+          "pre_processors": [
+            {
+              "type": "javascript",
+              "name": "准备 SQL 绑定参数",
+              "script": "if(vars.get('http_id') !== '42') throw new Error('missing HTTP variable'); vars.put('query_id',vars.get('http_id')); log.info('JDBC pre id={}',vars.get('query_id'));",
+              "timeout_ms": 1000
+            }
+          ],
+          "post_processors": [
+            {
+              "type": "javascript",
+              "name": "提取 JDBC 响应",
+              "script": "if(!prev.success) throw new Error('JDBC failed'); const data=JSON.parse(prev.body); if(data.rows[0][0] !== 42 || data.rows[0][1] !== 'ipds_dev') throw new Error('unexpected database result'); vars.put('db_id',String(data.rows[0][0])); log.info('JDBC post id={}',vars.get('db_id'));",
+              "timeout_ms": 1000
+            }
+          ],
+          "timers": [
+            {
+              "type": "constant_timer",
+              "name": "JDBC 固定等待",
+              "delay_ms": 25
+            }
+          ]
+        },
+        {
+          "type": "javascript",
+          "name": "JavaScript 处理器联动",
+          "script": "if(vars.get('phase') !== 'prepared' || vars.get('db_id') !== '42') throw new Error('chain failed'); vars.put('phase','sampled'); log.info('JavaScript main');",
+          "timeout_ms": 1000,
+          "pre_processors": [
+            {
+              "type": "javascript",
+              "name": "准备 JavaScript 变量",
+              "script": "vars.put('phase','prepared'); log.info('JavaScript pre');",
+              "timeout_ms": 1000
+            }
+          ],
+          "post_processors": [
+            {
+              "type": "javascript",
+              "name": "检查 JavaScript 结果",
+              "script": "if(!prev.isSuccessful() || prev.body !== null || vars.get('phase') !== 'sampled') throw new Error('invalid result'); vars.put('phase','finished'); log.info('JavaScript post');",
+              "timeout_ms": 1000
+            }
+          ],
+          "timers": [
+            {
+              "type": "gaussian_random_timer",
+              "name": "JavaScript 固定偏移",
+              "deviation_ms": 0,
+              "offset_ms": 10
+            },
+            {
+              "type": "constant_timer",
+              "name": "禁用草稿",
+              "enabled": false,
+              "delay_ms": "invalid draft"
+            }
+          ]
+        },
+        {
+          "type": "constant_timer",
+          "name": "线程组等待",
+          "delay_ms": 30
+        }
+      ]
+    }
+  ],
+  "timers": [
+    {
+      "type": "constant_timer",
+      "name": "计划全局等待",
+      "delay_ms": 20
+    }
+  ]
+}
