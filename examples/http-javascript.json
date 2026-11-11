@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "name": "HTTP 与 JavaScript 示例",
+  "variables": { "base_url": "http://127.0.0.1:18765", "again": "true" },
+  "groups": [
+    {
+      "name": "示例用户",
+      "users": 1,
+      "iterations": 1,
+      "children": [
+        {
+          "type": "javascript",
+          "name": "初始化变量",
+          "script": "vars.put('again', 'true');"
+        },
+        {
+          "type": "while",
+          "name": "业务循环",
+          "condition": "${again}",
+          "children": [
+            {
+              "type": "if",
+              "name": "执行请求",
+              "condition": "${again}",
+              "children": [
+                {
+                  "type": "loop",
+                  "count": 2,
+                  "children": [
+                    {
+                      "type": "http_request",
+                      "name": "检查本地服务",
+                      "method": "GET",
+                      "url": "${base_url}/status",
+                      "settings": {
+                        "use_system_proxy": false,
+                        "save_response_body": true
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "javascript",
+              "name": "结束循环",
+              "script": "vars.put('again', 'false');"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

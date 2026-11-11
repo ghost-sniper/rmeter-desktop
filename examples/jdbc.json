@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "name": "PostgreSQL 参数查询",
+  "jdbc_connections": [
+    {
+      "name": "测试数据库",
+      "variable_name": "db",
+      "url": "postgresql://localhost:5432/rmeter_test",
+      "username": "postgres",
+      "password_env": "PGPASSWORD"
+    }
+  ],
+  "groups": [
+    {
+      "name": "数据库用户",
+      "users": 1,
+      "iterations": 1,
+      "children": [
+        {
+          "type": "jdbc_request",
+          "name": "参数化查询",
+          "connection": "db",
+          "query_type": "select",
+          "sql": "SELECT $1::integer AS answer",
+          "parameters": [42],
+          "save_response_body": true
+        }
+      ]
+    }
+  ]
+}

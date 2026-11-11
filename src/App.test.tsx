@@ -1,0 +1,212 @@
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+const mock = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  open: vi.fn(),
+  save: vi.fn(),
+  setTitle: vi.fn().mockResolvedValue(undefined),
+  destroy: vi.fn().mockResolvedValue(undefined),
+  close: undefined as
+    ((event: { preventDefault: () => void }) => void) | undefined,
+}));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: mock.invoke,
+  isTauri: () => true,
+  Channel: class {
+    onmessage = () => {};
+  },
+}));
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: mock.open,
+  save: mock.save,
+}));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    setTitle: mock.setTitle,
+    destroy: mock.destroy,
+    onCloseRequested: async (
+      handler: (event: { preventDefault: () => void }) => void,
+    ) => {
+      mock.close = handler;
+      return () => {};
+    },
+  }),
+}));
+import App from "./App";
+import { RunMessage } from "./results";
+beforeEach(() => {
+  vi.clearAllMocks();
+  mock.invoke.mockResolvedValue(undefined);
+});
+it("creates a sampler and preserves form edits across node selection", () => {
+  render(<App />);
+  fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));
+  fireEvent.change(screen.getByLabelText(/添加到/), {
+    target: { value: "http_request" },
+  });
+  fireEvent.change(screen.getByLabelText("完整 URL"), {
+    target: { value: "http://localhost:8123/status" },
+  });
+  fireEvent.click(screen.getByRole("treeitem", { name: /线程组/ }));
+  fireEvent.click(screen.getByRole("treeitem", { name: /HTTP 采样器/ }));
+  expect(screen.getByLabelText("完整 URL")).toHaveValue(
+    "http://localhost:8123/status",
+  );
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("有未保存的修改");
+});
+it("keeps dirty state when saving fails", async () => {
+  mock.save.mockResolvedValue("C:/plan.json");
+  mock.invoke.mockImplementation(async (command) => {
+    if (command === "write_script") throw "磁盘不可写";
+  });
+  render(<App />);
+  fireEvent.change(screen.getByLabelText(/^名称/), {
+    target: { value: "修改计划" },
+  });
+  fireEvent.click(screen.getByTitle("保存 (Ctrl+S)"));
+  await screen.findByText("磁盘不可写");
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("有未保存的修改");
+});
+it("opens unsupported script read-only and prevents execution", async () => {
+  mock.open.mockResolvedValue("C:/plan.json");
+  mock.invoke.mockImplementation(async (command) =>
+    command === "read_script"
+      ? '{"version":1,"name":"外部计划","groups":[{"name":"g","children":[{"type":"controller","name":"x","children":[]}]}]}'
+      : undefined,
+  );
+  render(<App />);
+  fireEvent.click(screen.getByTitle("打开 (Ctrl+O)"));
+  await screen.findByText("此脚本以只读模式打开");
+  expect(screen.getByRole("button", { name: /▶\s*运行/ })).toBeDisabled();
+  expect(screen.getByTitle("保存 (Ctrl+S)")).toBeDisabled();
+});
+it("cancels new document when dirty prompt is dismissed", async () => {
+  render(<App />);
+  fireEvent.change(screen.getByLabelText(/^名称/), {
+    target: { value: "保留修改" },
+  });
+  fireEvent.click(screen.getByTitle("新建 (Ctrl+N)"));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByLabelText(/^名称/)).toHaveValue("保留修改");
+});
+
+it("handles completion before start command resolves and ignores an old run", async () => {
+  const channels: { onmessage: (message: RunMessage) => void }[] = [];
+  let resolveStart: (id: string) => void = () => {};
+  mock.invoke.mockImplementation(async (command, args) => {
+    if (command === "start_run") {
+      channels.push(args.channel);
+      return await new Promise<string>((resolve) => {
+        resolveStart = resolve;
+      });
+    }
+  });
+  render(<App />);
+  const run = screen.getByRole("button", { name: /▶\s*运行/ });
+  fireEvent.click(run);
+  await waitFor(() => expect(channels).toHaveLength(1));
+  const terminal: RunMessage = {
+    run_id: "1",
+    status: "completed",
+    events: [],
+    summary: { samples: 0, passed: 0, failed: 0, finished: true },
+    error: null,
+  };
+  await act(async () => {
+    channels[0].onmessage(terminal);
+    resolveStart("1");
+  });
+  expect(run).toBeEnabled();
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("已完成");
+  fireEvent.click(run);
+  await waitFor(() => expect(channels).toHaveLength(2));
+  act(() =>
+    channels[0].onmessage({ ...terminal, status: "failed", error: "stale" }),
+  );
+  expect(run).toBeDisabled();
+  expect(screen.queryByText("stale")).not.toBeInTheDocument();
+  await act(async () => {
+    channels[1].onmessage({ ...terminal, run_id: "2" });
+    resolveStart("2");
+  });
+});
+
+it("locks editing during a run and stops using the matching run id", async () => {
+  let channel: { onmessage: (message: RunMessage) => void };
+  mock.invoke.mockImplementation(async (command, args) => {
+    if (command === "start_run") {
+      channel = args.channel;
+      return "42";
+    }
+    if (command === "stop_run") {
+      channel.onmessage({
+        run_id: "42",
+        status: "cancelled",
+        events: [],
+        summary: { samples: 0, passed: 0, failed: 0, finished: false },
+        error: null,
+      });
+    }
+  });
+  render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: /▶\s*运行/ }));
+  await waitFor(() =>
+    expect(mock.invoke).toHaveBeenCalledWith("start_run", expect.anything()),
+  );
+  expect(screen.getByLabelText(/^名称/)).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: /■\s*停止/ }));
+  await waitFor(() =>
+    expect(mock.invoke).toHaveBeenCalledWith("stop_run", { runId: "42" }),
+  );
+  expect(screen.getByLabelText(/^名称/)).toBeEnabled();
+  expect(screen.getByRole("contentinfo")).toHaveTextContent("已停止");
+});
+
+it("can stop, save dirty changes, and close in one flow", async () => {
+  let channel: { onmessage: (message: RunMessage) => void };
+  mock.save.mockResolvedValue("C:/saved.json");
+  mock.invoke.mockImplementation(async (command, args) => {
+    if (command === "start_run") {
+      channel = args.channel;
+      return "close-run";
+    }
+    if (command === "stop_run")
+      channel.onmessage({
+        run_id: "close-run",
+        status: "cancelled",
+        events: [],
+        summary: { samples: 0, passed: 0, failed: 0, finished: false },
+        error: null,
+      });
+  });
+  render(<App />);
+  fireEvent.change(screen.getByLabelText(/^名称/), {
+    target: { value: "关闭前保存" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /▶\s*运行/ }));
+  await waitFor(() =>
+    expect(mock.invoke).toHaveBeenCalledWith("start_run", expect.anything()),
+  );
+  act(() => mock.close?.({ preventDefault: () => {} }));
+  fireEvent.click(await screen.findByRole("button", { name: "停止并关闭" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "当前测试计划有未保存的修改。",
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+  await waitFor(() => expect(mock.destroy).toHaveBeenCalledOnce());
+  expect(mock.invoke).toHaveBeenCalledWith("write_script", {
+    path: "C:/saved.json",
+    source: expect.stringContaining("关闭前保存"),
+  });
+});
