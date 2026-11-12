@@ -33,6 +33,7 @@ import NodeForm, { Draft, Drafts } from "./NodeForm";
 import { RunMessage, emptyResults, receiveResults } from "./results";
 import "./App.css";
 import ThemePicker from "./ThemePicker";
+import FunctionGenerator from "./FunctionGenerator";
 
 const filter = [{ name: "rmeter 测试脚本", extensions: ["json"] }];
 const componentMenus: { label: string; kinds: Kind[] }[] = [
@@ -90,6 +91,8 @@ export default function App() {
   const [resultsOpen, setResultsOpen] = useState(false);
   const [selectedResult, setSelectedResult] = useState<number>();
   const [menu, setMenu] = useState<string>();
+  const [functionGeneratorOpen, setFunctionGeneratorOpen] = useState(false);
+  const toolsMenu = useRef<HTMLButtonElement>(null);
   const [contextCategory, setContextCategory] = useState<string>();
   const [context, setContext] = useState<{
     id: string;
@@ -295,6 +298,7 @@ export default function App() {
   }
   closeHandler.current = async () => {
     if (lock.current || prompt) return;
+    setFunctionGeneratorOpen(false);
     if (active.current) {
       if (
         (await ask("测试正在运行，停止后关闭窗口？", [
@@ -339,6 +343,7 @@ export default function App() {
   }, [dirty, document.root.data.name]);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (functionGeneratorOpen) return;
       if (prompt) {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -594,9 +599,10 @@ export default function App() {
           <span className="version">DESKTOP</span>
         </div>
         <nav aria-label="主菜单">
-          {["文件", "编辑", "运行", "帮助"].map((name) => (
+          {["文件", "编辑", "运行", "工具", "帮助"].map((name) => (
             <div className="menu-wrap" key={name}>
               <button
+                ref={name === "工具" ? toolsMenu : undefined}
                 className={menu === name ? "active" : ""}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -642,14 +648,24 @@ export default function App() {
                         停止运行
                       </button>
                     </>
+                  ) : name === "工具" ? (
+                    <button
+                      onClick={() => {
+                        setMenu(undefined);
+                        setContext(undefined);
+                        setFunctionGeneratorOpen(true);
+                      }}
+                    >
+                      函数生成
+                    </button>
                   ) : (
                     <div className="help-text">
                       <strong>rmeter desktop 0.1.0</strong>
                       <p>使用 rmeter v0.1.0 核心。</p>
                       <p>原生 JSON · PostgreSQL · JavaScript</p>
                       <p>
-                        仅提供八类基础组件。不支持 JMX、JMeter 函数或完整 JSR223
-                        API。
+                        提供五种原生函数，可通过“工具 → 函数生成”生成调用语法。
+                        不支持 JMX 或完整 JSR223 API。
                       </p>
                     </div>
                   )}
@@ -1251,6 +1267,14 @@ export default function App() {
             删除节点
           </button>
         </div>
+      )}
+      {functionGeneratorOpen && (
+        <FunctionGenerator
+          returnFocus={toolsMenu}
+          onClose={() => {
+            setFunctionGeneratorOpen(false);
+          }}
+        />
       )}
       {prompt && (
         <div className="modal-backdrop" onClick={(e) => e.stopPropagation()}>

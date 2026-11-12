@@ -8,3 +8,11 @@ Object.defineProperty(globalThis, "localStorage", {
   value: jsdom.window.localStorage,
 });
 afterEach(cleanup);
+
+// jsdom does not implement native dialog methods; the browser handles modal focus.
+HTMLDialogElement.prototype.showModal = function () {
+  this.setAttribute("open", "");
+};
+HTMLDialogElement.prototype.close = function () {
+  this.removeAttribute("open");
+};

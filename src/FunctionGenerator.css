@@ -1,0 +1,104 @@
+.function-generator {
+  width: min(860px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  margin: auto;
+  padding: 24px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 16px 60px var(--shadow);
+}
+.function-generator::backdrop {
+  background: var(--scrim);
+}
+.function-generator-header,
+.function-generator-results header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.function-generator h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.function-generator > p,
+.function-generator-description {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+.function-generator-selector {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: center;
+  margin-top: 20px;
+}
+.function-parameters {
+  table-layout: fixed;
+}
+.function-parameters th,
+.function-parameters td {
+  padding: 10px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+.function-parameters th:first-child {
+  width: 20%;
+}
+.function-parameters th:nth-child(2) {
+  width: 43%;
+}
+.function-parameters th[scope="row"] {
+  color: var(--text);
+}
+.function-parameters small {
+  display: block;
+  margin-top: 4px;
+  font-weight: normal;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.function-parameters td:last-child {
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+.function-generator-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.function-generator-actions button {
+  background: var(--selected);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.function-generator-error {
+  color: var(--danger);
+}
+.function-generator-results {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.function-generator-results section + section {
+  margin-top: 16px;
+}
+.function-generator-results textarea {
+  margin-top: 8px;
+  font-family: Consolas, monospace;
+  background: var(--code-bg);
+  color: var(--code-text);
+}
+.function-generator-results p {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 6px 0 0;
+}
+.function-generator-results .function-copy-status {
+  min-height: 20px;
+  margin-top: 12px;
+  color: var(--text);
+}

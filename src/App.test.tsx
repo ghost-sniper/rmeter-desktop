@@ -44,10 +44,93 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 import App from "./App";
 import { RunMessage } from "./results";
+
+it("opens the function generator, switches parameters, copies both forms and preserves the plan", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  render(<App />);
+  const tools = screen.getByRole("button", { name: "工具" });
+  fireEvent.click(tools);
+  fireEvent.click(screen.getByRole("button", { name: "函数生成" }));
+  const dialog = screen.getByRole("dialog", { name: "函数生成" });
+  expect(dialog).toHaveAttribute("open");
+  const ui = within(dialog);
+  expect(
+    ui.getByRole("table", { name: "RandomString 参数" }),
+  ).toBeInTheDocument();
+  fireEvent.click(ui.getByRole("button", { name: "生成" }));
+  fireEvent.click(ui.getByRole("button", { name: "复制函数表达式" }));
+  await waitFor(() =>
+    expect(ui.getByRole("status")).toHaveTextContent("已复制函数表达式"),
+  );
+  expect(writeText).toHaveBeenLastCalledWith(
+    "${__RandomString(16,abcdef0123456789)}",
+  );
+
+  fireEvent.change(ui.getByRole("combobox", { name: "函数" }), {
+    target: { value: "Random" },
+  });
+  expect(
+    ui.queryByRole("textbox", { name: "函数表达式" }),
+  ).not.toBeInTheDocument();
+  fireEvent.change(ui.getByLabelText(/最小值/), {
+    target: { value: "9223372036854775807" },
+  });
+  fireEvent.click(ui.getByRole("button", { name: "生成" }));
+  expect(ui.getByRole("alert")).toHaveTextContent("最大值不能小于最小值");
+  fireEvent.change(ui.getByLabelText(/最大值/), {
+    target: { value: "9223372036854775807" },
+  });
+  fireEvent.click(ui.getByRole("button", { name: "生成" }));
+  fireEvent.click(ui.getByRole("button", { name: "复制JavaScript 调用" }));
+  await waitFor(() =>
+    expect(writeText).toHaveBeenLastCalledWith(
+      'functions.Random("9223372036854775807", "9223372036854775807")',
+    ),
+  );
+  writeText.mockRejectedValueOnce(new Error("denied"));
+  fireEvent.click(ui.getByRole("button", { name: "复制JavaScript 调用" }));
+  await waitFor(() =>
+    expect(ui.getByRole("status")).toHaveTextContent("复制失败"),
+  );
+  fireEvent.keyDown(dialog, { key: "s", ctrlKey: true });
+  expect(mock.save).not.toHaveBeenCalled();
+  fireEvent.click(ui.getByRole("button", { name: "关闭函数生成" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(tools).toHaveFocus();
+  expect(screen.queryByText(/有未保存的修改/)).not.toBeInTheDocument();
+  fireEvent.click(tools);
+  fireEvent.click(screen.getByRole("button", { name: "函数生成" }));
+  fireEvent(
+    screen.getByRole("dialog", { name: "函数生成" }),
+    new Event("cancel", { bubbles: false, cancelable: true }),
+  );
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
 beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.clear();
   mock.invoke.mockResolvedValue(undefined);
+});
+
+it("dismisses the generator before asking to save on window close", async () => {
+  render(<App />);
+  fireEvent.change(screen.getByRole("textbox", { name: "名称 *" }), {
+    target: { value: "未保存计划" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "工具" }));
+  fireEvent.click(screen.getByRole("button", { name: "函数生成" }));
+  act(() => mock.close?.({ preventDefault() {} }));
+  const prompt = await screen.findByRole("dialog");
+  expect(prompt).not.toHaveAccessibleName("函数生成");
+  fireEvent.click(within(prompt).getByRole("button", { name: "取消" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  expect(mock.destroy).not.toHaveBeenCalled();
 });
 
 it("keeps unsaved node input and native script data when switching themes", async () => {
