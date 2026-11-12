@@ -61,14 +61,19 @@ jobs:
 
       - name: Stage Windows portable binaries and verify installer
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          output="src-tauri/target/$TARGET/release"
-          mkdir -p portable
-          cp "$output/rmeter-desktop.exe" portable/
-          cp "src-tauri/binaries/rmeter-js-worker-$TARGET.exe" portable/rmeter-js-worker.exe
-          installers=("$output"/bundle/nsis/*.exe)
-          seven_zip="$(cygpath -u "$ProgramFiles")/7-Zip/7z.exe"
-          "$seven_zip" l -slt "${installers[0]}" | tr -d '\r' | grep -E '^Path = (.*[\\/])?rmeter-js-worker\.exe$'
+          $output = "src-tauri/target/$env:TARGET/release"
+          New-Item -ItemType Directory -Path portable
+          Copy-Item "$output/rmeter-desktop.exe" portable/
+          Copy-Item "src-tauri/binaries/rmeter-js-worker-$env:TARGET.exe" portable/rmeter-js-worker.exe
+
+          $installers = @(Get-ChildItem "$output/bundle/nsis" -Filter '*.exe' -File)
+          if ($installers.Count -ne 1) { throw 'Expected one NSIS installer.' }
+          $listing = & "$env:ProgramFiles/7-Zip/7z.exe" l -slt ($installers[0].FullName)
+          if ($LASTEXITCODE -ne 0 -or -not ($listing | Select-String -Quiet -Pattern '^Path = (.*[\\/])?rmeter-js-worker\.exe$')) {
+            throw 'Could not verify rmeter-js-worker.exe inside the NSIS installer.'
+          }
 
       - name: Verify Linux packages contain the worker
         if: runner.os == 'Linux'
