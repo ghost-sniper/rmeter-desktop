@@ -1,6 +1,6 @@
 # rmeter desktop
 
-基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的固定提交 **1e2b1770edacbd150b6f4e30fb9576bf58ba9af5**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用、JDBC 整表/按列结果变量、JavaScript 前后置处理器、五种 HTTP 提取器及固定/高斯随机定时器）。
+基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的固定提交 **0d5bec937094ad13dfbc06e7d1f4e6448514609c**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用、JDBC 整表/按列结果变量、JavaScript 前后置处理器、五种 HTTP 提取器、固定/高斯随机定时器及五种原生函数与 Java 日期格式转换）。
 
 ## 开发与构建
 
@@ -61,7 +61,7 @@ bun run prepare:worker --force
 
 JDBC 使用 Rust 原生 PostgreSQL 驱动，不加载 JDBC JAR，默认要求 TLS。配置可置于计划根、线程组或控制器，同名池的覆盖和引用语义由核心库处理。密码字段会写入 JSON，也可使用 `password_env` 从宿主环境读取，两者互斥。
 
-JavaScript 支持 `vars.get/put/remove/contains` 与 `ctx`，不提供 Node.js、浏览器、异步 I/O 或完整 JSR223 API。IF/While 的字符串条件使用 rmeter 变量表达式，不执行 JavaScript 或 JMeter 函数。
+JavaScript 支持 `vars.get/put/remove/contains`、`ctx` 和原生 `functions` 函数库，不提供 Node.js、浏览器、异步 I/O 或完整 JSR223 API。IF/While 的字符串条件支持 rmeter 变量和 `${__函数(...)}` 表达式，不执行 JavaScript。
 
 ### 文件格式与保护
 
@@ -172,7 +172,7 @@ HTTP 采样器的“后置处理器”菜单支持 JSONPath、XPath、JMESPath�
 
 执行顺序为前置处理器 → 定时器 → 采样器 → 后置处理器 → 断言。等待不计入采样响应耗时，也不生成独立结果，但计入线程组最长运行时间；停止、窗口退出和通道断开可取消等待。仅使用定时器的 HTTP/JDBC 脚本不依赖 worker。
 
-延迟和偏移使用非负整数毫秒，偏差允许小数；参数及计算结果上限为 9007199254740991 ms。参数支持 `${变量名}`，读取前置处理器执行后的当前用户变量；不支持 JMeter 函数或 `timer.factor` 属性。静态非法值在执行校验时报告；动态变量缺失或非法时父采样失败，返回 `TimerError`，不发送请求，跳过后续处理并遵循线程组错误策略。
+延迟和偏移使用非负整数毫秒，偏差允许小数；参数及计算结果上限为 9007199254740991 ms。参数支持 `${变量名}`，读取前置处理器执行后的当前用户变量；支持五种原生函数表达式，不解释 `timer.factor` 属性。静态非法值在执行校验时报告；动态变量缺失或非法时父采样失败，返回 `TimerError`，不发送请求，跳过后续处理并遵循线程组错误策略。
 
 原生类型为 `constant_timer`（`name`、`delay_ms`）和 `gaussian_random_timer`（`name`、`deviation_ms`、`offset_ms`）。测试计划/采样器放在 `timers` 数组，线程组/控制器放在 `children` 数组，均可添加 `enabled`。缺省/空数组、字符串变量表达式、禁用草稿和声明顺序均保留。
 
@@ -282,3 +282,25 @@ HTTP 覆盖 `/hello/test` 模板、`/order` 成功及 UnionPay 分支、`/query/
 `src/model.ts` 管理原生 JSON 与编辑树；`NodeForm.tsx` 提供组件表单；`results.ts` 限制展示缓存；`App.tsx` 负责桌面交互。
 
 `src-tauri/src/bridge.rs` 仅提供文件命令、库调用、任务生命周期和 IPC。解析、组件编译、线程调度、变量、条件、HTTP/JDBC/JavaScript 采样均由 rmeter 提供。接口为 `read_script`、`write_script`、`validate_script`、`start_run`、`stop_run`、`worker_status`；运行结果带独立 `run_id`，使用 Tauri Channel 批量发送。
+
+## 原生函数与日期格式转换
+
+三类 JavaScript 组件共享只读 `functions` 对象，返回值均为字符串：
+
+```javascript
+functions.RandomString(16, 'abcdef0123456789', 'requestId');
+functions.changeCase('hello', 'UPPER', 'message');
+functions.dateTimeConvert('2024-02-29 12:30:45', 'yyyy-MM-dd HH:mm:ss', 'dd/MM/yyyy', 'day');
+functions.Random('9223372036854775807', '9223372036854775807');
+functions.RandomDate('', '2024-02-29', '2024-03-01', 'zh_CN', 'randomDay');
+```
+
+最后的可选变量名将结果写入当前用户，遵循现有变量容量和脚本失败回滚规则。`Random` 两端包含，支持有符号 64 位整数；超出 JavaScript 安全整数范围时必须传十进制字符串。`RandomString` 长度按 UTF-16 计数，省略字符集可产生控制字符，业务标识建议显式给出字符集。
+
+HTTP、JDBC、连接配置、定时器和 IF/While 中原来支持变量展开的位置，现在也支持 `${__Random(1,100,number)}`、`${__dateTimeConvert(${createdAt},yyyy-MM-dd HH:mm:ss,yyyyMMdd,day)}` 等五种函数。支持嵌套、空参数与参数转义，按从左到右顺序求值；每个字符串展开失败时回滚该字符串的变量写入。JavaScript 源码使用 `functions` 调用，不进行表达式替换。
+
+日期采用 JDK 21 `DateTimeFormatter.ofPattern` 的 ISO/SMART 规则，支持地区文字、周历年、可选段、纳秒和时区。SMART 可能将二月 30 日调整为当月最后一天，这是 Java 的既定行为。源格式为空时输入为 Unix 毫秒时间戳。`RandomDate` 默认格式为 `yyyy-MM-dd`，空起始日期为今天，结束日期不包含且必须晚于起始日期。系统时区和语言在运行开始时固定；普通运行和安装包无需 Java。
+
+非法函数、参数或不可解析日期明确报错，遵循所在组件的错误处理。表达式、参数及结果最大 1 MiB，嵌套最多 32 层，随机字符串最多 262,144 个 UTF-16 单元，日期模式最多 4,096 字节。
+
+打开 `examples/functions.json` 可直接验证全部函数、前后置处理器、条件和定时器：无需 HTTP 或数据库，2 用户 × 2 迭代，预期 4 次成功采样。

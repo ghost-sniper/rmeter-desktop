@@ -3078,7 +3078,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
 dependencies = [
- "proc-macro-crate 3.5.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -4072,10 +4072,11 @@ dependencies = [
 [[package]]
 name = "rmeter"
 version = "0.1.0"
-source = "git+https://github.com/ghost-sniper/rmeter.git?rev=1e2b1770edacbd150b6f4e30fb9576bf58ba9af5#1e2b1770edacbd150b6f4e30fb9576bf58ba9af5"
+source = "git+https://github.com/ghost-sniper/rmeter.git?rev=0d5bec937094ad13dfbc06e7d1f4e6448514609c#0d5bec937094ad13dfbc06e7d1f4e6448514609c"
 dependencies = [
  "rmeter-component",
  "rmeter-core",
+ "rmeter-function",
  "serde",
  "serde_json",
  "tokio",
@@ -4084,7 +4085,7 @@ dependencies = [
 [[package]]
 name = "rmeter-component"
 version = "0.1.0"
-source = "git+https://github.com/ghost-sniper/rmeter.git?rev=1e2b1770edacbd150b6f4e30fb9576bf58ba9af5#1e2b1770edacbd150b6f4e30fb9576bf58ba9af5"
+source = "git+https://github.com/ghost-sniper/rmeter.git?rev=0d5bec937094ad13dfbc06e7d1f4e6448514609c#0d5bec937094ad13dfbc06e7d1f4e6448514609c"
 dependencies = [
  "bytes",
  "chrono",
@@ -4098,6 +4099,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rmeter-core",
+ "rmeter-function",
  "rquickjs",
  "serde",
  "serde_json",
@@ -4114,8 +4116,9 @@ dependencies = [
 [[package]]
 name = "rmeter-core"
 version = "0.1.0"
-source = "git+https://github.com/ghost-sniper/rmeter.git?rev=1e2b1770edacbd150b6f4e30fb9576bf58ba9af5#1e2b1770edacbd150b6f4e30fb9576bf58ba9af5"
+source = "git+https://github.com/ghost-sniper/rmeter.git?rev=0d5bec937094ad13dfbc06e7d1f4e6448514609c#0d5bec937094ad13dfbc06e7d1f4e6448514609c"
 dependencies = [
+ "rmeter-function",
  "serde",
  "tokio",
 ]
@@ -4132,6 +4135,19 @@ dependencies = [
  "tauri-plugin-dialog",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "rmeter-function"
+version = "0.1.0"
+source = "git+https://github.com/ghost-sniper/rmeter.git?rev=0d5bec937094ad13dfbc06e7d1f4e6448514609c#0d5bec937094ad13dfbc06e7d1f4e6448514609c"
+dependencies = [
+ "flate2",
+ "iana-time-zone",
+ "rand 0.10.3",
+ "serde",
+ "serde_json",
+ "sys-locale",
 ]
 
 [[package]]
@@ -4961,6 +4977,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.10",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

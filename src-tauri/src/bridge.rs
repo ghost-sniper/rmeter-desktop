@@ -927,6 +927,17 @@ mod tests {
         );
     }
     #[tokio::test]
+    async fn native_functions_example_runs_without_external_services() {
+        configure_worker().unwrap();
+        let script: Value =
+            serde_json::from_str(include_str!("../../examples/functions.json")).unwrap();
+        let (status, summary, _) = collect(script).await;
+        assert_eq!(status, "completed");
+        assert_eq!(summary.samples, 4);
+        assert_eq!(summary.passed, 4);
+        assert_eq!(summary.failed, 0);
+    }
+    #[tokio::test]
     async fn javascript_variables_drive_while_and_if_and_surface_errors() {
         configure_worker().unwrap();
         let server = http_fixture(200, b"ok".to_vec()).await;

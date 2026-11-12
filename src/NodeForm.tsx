@@ -260,7 +260,7 @@ const specificFields: Partial<Record<EditorNode["kind"], Field[]>> = {
       label: "JavaScript",
       type: "code",
       required: true,
-      hint: "vars.get / put / remove / contains；ctx.groupName / userIndex / iteration / lastSampleOk；log.trace / debug / info / warn / error。变量为字符串，不提供 Java、浏览器、Node.js 或异步 I/O。",
+      hint: "vars.get / put / remove / contains；functions.RandomString / changeCase / dateTimeConvert / Random / RandomDate。日期示例：functions.dateTimeConvert('2024-02-29', 'yyyy-MM-dd', 'dd/MM/yyyy')。ctx 提供运行上下文，log 提供日志；函数返回字符串，大整数请传十进制字符串。",
     },
     {
       path: "timeout_ms",
@@ -898,7 +898,8 @@ export default function NodeForm(props: Props) {
           {isTimer(node.kind) && (
             <p className="field-hint">
               在作用域内每次采样的前置处理器之后、采样开始之前暂停当前用户；多个定时器的延迟累加。放在采样器下仅影响该采样器。等待不计入响应耗时，不生成采样结果，停止可中断等待。支持
-              $&#123;变量名&#125;，不执行 JMeter 函数。
+              $&#123;变量名&#125; 和 $&#123;__Random(1,100,delay)&#125;
+              等函数表达式。
             </p>
           )}
           <div className="form-grid">
@@ -1019,8 +1020,8 @@ export default function NodeForm(props: Props) {
                   required: true,
                   hint:
                     node.kind === "if"
-                      ? "IF：表达式展开为 true 时执行，不执行 JavaScript / JMeter 函数。"
-                      : "While：空值或 LAST 使用库的采样状态语义；其他表达式展开为 false 时退出。",
+                      ? "IF：变量和函数表达式展开为 true 时执行，例如 ${__changeCase(TRUE,lower)}。"
+                      : "While：空值或 LAST 使用库的采样状态语义；变量和函数表达式展开为 false 时退出。",
                 })}
               </>
             )}
