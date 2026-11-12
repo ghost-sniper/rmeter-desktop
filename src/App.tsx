@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { version } from "../package.json";
 import {
   EditorNode,
   Kind,
@@ -688,7 +689,7 @@ export default function App() {
                     </button>
                   ) : (
                     <div className="help-text">
-                      <strong>rmeter desktop 0.1.0</strong>
+                      <strong>rmeter desktop {version}</strong>
                       <p>使用 rmeter v0.1.0 核心。</p>
                       <p>原生 JSON · PostgreSQL · JavaScript</p>
                       <p>
