@@ -1,4 +1,5 @@
 import { useId } from "react";
+import JavaScriptEditor from "./JavaScriptEditor";
 import { AssertionKind, assertionLabels, newAssertion } from "./assertions";
 import {
   EditorNode,
@@ -138,7 +139,21 @@ const specificFields: Partial<Record<EditorNode["kind"], Field[]>> = {
       ],
     },
   ],
+  while: [
+    {
+      path: "timeout_ms",
+      label: "每轮超时（ms）",
+      type: "number",
+      hint: "0 或缺省表示不限时；每轮重新计时，累计所有子节点（含定时器和处理器）耗时。超时取消当前节点并退出此控制器，记录失败。",
+    },
+  ],
   loop: [
+    {
+      path: "timeout_ms",
+      label: "每轮超时（ms）",
+      type: "number",
+      hint: "0 或缺省表示不限时；每轮重新计时，累计所有子节点（含定时器和处理器）耗时。超时取消当前节点并退出此控制器，记录失败。",
+    },
     {
       path: "count",
       label: "循环次数",
@@ -406,6 +421,21 @@ function InputField({ field, ...props }: Props & { field: Field }) {
             <option value="true">是</option>
             <option value="false">否</option>
           </select>
+        ) : field.path === "script" &&
+          (node.kind === "javascript" || isJavaScriptProcessor(node.kind)) ? (
+          <JavaScriptEditor
+            key={node.id}
+            id={id}
+            value={shown}
+            onChange={accept}
+            kind={
+              node.kind as
+                | "javascript"
+                | "javascript_preprocessor"
+                | "javascript_postprocessor"
+            }
+            disabled={props.disabled}
+          />
         ) : field.type === "code" || field.type === "json" ? (
           <textarea
             id={id}

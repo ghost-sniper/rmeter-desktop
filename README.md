@@ -1,6 +1,6 @@
 # rmeter desktop
 
-基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为私有仓库 `ghost-sniper/rmeter` 的固定提交 **0d5bec937094ad13dfbc06e7d1f4e6448514609c**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用、JDBC 整表/按列结果变量、JavaScript 前后置处理器、五种 HTTP 提取器、固定/高斯随机定时器及五种原生函数与 Java 日期格式转换）。
+基于 React、TypeScript 和 Tauri 2 的中文测试脚本编辑器。主界面采用 JMeter 的左侧节点树、右侧属性面板布局，执行核心为公开仓库 [`ghost-sniper/rmeter`](https://github.com/ghost-sniper/rmeter) 的固定提交 **71dacf95889c9cd8a5b252bc36685b615d5e0eac**（基于 v0.1.0，支持 HTTP 采样器列表覆盖、组件命名与禁用、JDBC 整表/按列结果变量、JavaScript 前后置处理器、五种 HTTP 提取器、固定/高斯随机定时器、五种原生函数与 Java 日期格式转换及 Loop/While 每轮超时）。
 
 ## 开发与构建
 
@@ -11,26 +11,17 @@
 ```powershell
 bun install --frozen-lockfile
 bun run tauri dev
-bun run tauri build
-# 仅生成可执行文件，不生成安装包
+# 默认仅生成可执行文件，不生成安装包
 bun run tauri build --no-bundle
 ```
 
-所有前端安装、开发、测试和构建均使用 Bun。Tauri 的 `beforeDevCommand` / `beforeBuildCommand` 自动通过 Bun 准备 JavaScript worker，然后启动 Vite / 构建前端。Rust 与 worker 使用 Cargo 编译。Windows 安装包位于 `src-tauri/target/release/bundle/`。
+所有前端安装、开发、测试和构建均使用 Bun。Tauri 的 `beforeDevCommand` / `beforeBuildCommand` 自动通过 Bun 准备 JavaScript worker，然后启动 Vite / 构建前端。Rust 与 worker 使用 Cargo 编译，发布构建采用 O3（`opt-level = 3`）。仅在明确需要安装包时使用安装包构建，产物位于 `src-tauri/target/release/bundle/`。
 
 只预览界面：`bun run dev`。浏览器预览可以编辑节点，文件对话框与校验、执行需要桌面宿主，不模拟执行结果。
 
-### 私有 Git 依赖
+### 核心 Git 依赖
 
-`src-tauri/Cargo.toml` 使用 HTTPS Git URL、完整 `rev` 和 `default-features = false`；`Cargo.lock` 固定同一提交。项目 `.cargo/config.toml` 启用 Git CLI 拉取。
-
-先通过本机 Git Credential Manager 完成拥有仓库读取权限的 GitHub 账号认证，确认以下命令能够读取远程分支：
-
-```powershell
-git ls-remote https://github.com/ghost-sniper/rmeter.git refs/heads/master
-```
-
-GitHub 应用连接的权限不会自动成为本机 Git 凭据。不要把 token 写入 URL、Cargo 配置或项目文件。CI 通过其凭据管理配置只读访问。
+`src-tauri/Cargo.toml` 使用公开仓库的 HTTPS Git URL、完整 `rev` 和 `default-features = false`；`Cargo.lock` 固定同一提交。项目 `.cargo/config.toml` 启用 Git CLI 拉取，读取依赖无需 GitHub 账号或访问令牌。
 
 ### JavaScript worker
 
@@ -46,7 +37,7 @@ bun run prepare:worker --force
 
 ## 使用
 
-- 顶部“主题”提供 Light、Dark、Cyberpunk 2077、EVA、Death Stranding 和 Black Myth: Wukong 六种外观。主题即时生效并在本机记忆；切换不会改动脚本或丢失输入，运行期间也可切换。作品背景内置于应用，无需联网；图片来源和版权说明见 [public/themes/SOURCES.md](public/themes/SOURCES.md)。
+- “视图 → 外观”提供 Light、Dark、Cyberpunk 2077、EVA、Death Stranding 和 Black Myth: Wukong 六种外观。主题、界面字体/字号和代码字体/字号在“保存”后立即生效并在本机记忆；取消或 Esc 丢弃草稿。字号为 10–32 整数像素，默认界面 13、代码 12。本机字体离线扫描，等宽字体带标记；不可用字体使用后备字体，读取或存储失败时显示提示。设置不会改动脚本或丢失输入，运行期间也可调整。作品背景内置于应用，无需联网；图片来源和版权说明见 [public/themes/SOURCES.md](public/themes/SOURCES.md)。
 - 新建测试计划，选择线程组，通过右键或左下方选择器添加组件。树支持复制、删除、上下移动、移动到合法父节点及方向键导航。
 - 右键菜单按“配置元件”（JDBC 连接配置、HTTP 默认配置）、“采样器”（HTTP、JDBC、JavaScript）和“逻辑控制器”（Loop、While、IF）分类，悬停或点击展开子菜单；仅显示当前父节点允许添加的组件，测试计划下仍可直接添加线程组。
 - `Ctrl+N` 新建、`Ctrl+O` 打开、`Ctrl+S` 保存、`Ctrl+Shift+S` 另存为；树内 `Ctrl+D` 复制、`Delete` 删除。
@@ -62,6 +53,8 @@ bun run prepare:worker --force
 JDBC 使用 Rust 原生 PostgreSQL 驱动，不加载 JDBC JAR，默认要求 TLS。配置可置于计划根、线程组或控制器，同名池的覆盖和引用语义由核心库处理。密码字段会写入 JSON，也可使用 `password_env` 从宿主环境读取，两者互斥。
 
 JavaScript 支持 `vars.get/put/remove/contains`、`ctx` 和原生 `functions` 函数库，不提供 Node.js、浏览器、异步 I/O 或完整 JSR223 API。IF/While 的字符串条件支持 rmeter 变量和 `${__函数(...)}` 表达式，不执行 JavaScript。
+
+JavaScript 采样器、前置处理器和后置处理器的脚本编辑区支持轻量补全：输入前缀或对象后的 `.` 自动提示，也可按 `Ctrl+Space` 唤出；使用 ↑/↓ 选择、Tab/Enter 插入、Esc 关闭，或点击候选项。提示包含参数签名和说明，覆盖 `vars`、`ctx`、`log`、`sampler`、五种 `functions` 函数以及部分 JavaScript 标准接口和关键字；`prev` 仅在后置处理器中提示。补全会保留已有参数括号，字符串、模板文本、注释和输入法组合输入期间不弹出提示。这是已知接口的静态提示，不提供用户变量类型推断或完整语法检查。
 
 ### 文件格式与保护
 
@@ -281,7 +274,7 @@ HTTP 覆盖 `/hello/test` 模板、`/order` 成功及 UnionPay 分支、`/query/
 
 `src/model.ts` 管理原生 JSON 与编辑树；`NodeForm.tsx` 提供组件表单；`results.ts` 限制展示缓存；`App.tsx` 负责桌面交互。
 
-`src-tauri/src/bridge.rs` 仅提供文件命令、库调用、任务生命周期和 IPC。解析、组件编译、线程调度、变量、条件、HTTP/JDBC/JavaScript 采样均由 rmeter 提供。接口为 `read_script`、`write_script`、`validate_script`、`start_run`、`stop_run`、`worker_status`；运行结果带独立 `run_id`，使用 Tauri Channel 批量发送。
+`src-tauri/src/bridge.rs` 仅提供文件命令、库调用、任务生命周期和 IPC。解析、组件编译、线程调度、变量、条件、HTTP/JDBC/JavaScript 采样均由 rmeter 提供。接口为 `read_script`、`write_script`、`validate_script`、`start_run`、`stop_run`、`worker_status`、`list_system_fonts`；运行结果带独立 `run_id`，使用 Tauri Channel 批量发送。
 
 ## 原生函数与日期格式转换
 
@@ -306,3 +299,11 @@ HTTP、JDBC、连接配置、定时器和 IF/While 中原来支持变量展开�
 非法函数、参数或不可解析日期明确报错，遵循所在组件的错误处理。表达式、参数及结果最大 1 MiB，嵌套最多 32 层，随机字符串最多 262,144 个 UTF-16 单元，日期模式最多 4,096 字节。
 
 打开 `examples/functions.json` 可直接验证全部函数、前后置处理器、条件和定时器：无需 HTTP 或数据库，2 用户 × 2 迭代，预期 4 次成功采样。
+
+## Loop / While 每轮超时
+
+两种控制器均支持 `timeout_ms`，单位毫秒，省略或 `0` 为不限时，只接受非负安全整数（不接受 null、小数和表达式）。JSON 仍为 `version: 1`，旧脚本无需迁移。
+
+每轮开始重新计时，累计嵌套子节点、定时器、前后置处理器和采样器的完整执行时间，结果上报等待不计入预算。到期取消当前节点并退出整个控制器，记录一条名为控制器名称的 `ControllerTimeout` 失败；已完成采样与变量保留，被中断采样不重复计数。嵌套时最早截止者优先，同一截止时间外层优先。遵循线程组“采样错误后”策略，“继续”从该控制器之后继续。
+
+[离线示例](examples/loop-timeouts.json) 无需 HTTP 或数据库；预期 4 条记录，2 条成功、2 条控制器超时失败。需要同版本 JavaScript worker。

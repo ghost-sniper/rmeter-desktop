@@ -139,8 +139,14 @@ it("keeps unsaved node input and native script data when switching themes", asyn
   fireEvent.change(screen.getByRole("textbox", { name: "名称 *" }), {
     target: { value: "保留编辑内容" },
   });
-  fireEvent.click(screen.getByRole("button", { name: /切换主题/ }));
+  fireEvent.click(screen.getByRole("button", { name: "视图" }));
+  fireEvent.click(screen.getByRole("button", { name: "外观" }));
   fireEvent.click(screen.getByRole("button", { name: "EVA" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "外观" })).getByRole("button", {
+      name: "保存",
+    }),
+  );
   expect(screen.getByRole("textbox", { name: "名称 *" })).toHaveValue(
     "保留编辑内容",
   );
@@ -876,3 +882,117 @@ it.each([
     ).not.toBeChecked();
   },
 );
+
+async function openAppearance() {
+  fireEvent.click(screen.getByRole("button", { name: "视图" }));
+  fireEvent.click(screen.getByRole("button", { name: "外观" }));
+  const dialog = screen.getByRole("dialog", { name: "外观" });
+  await waitFor(() =>
+    expect(
+      within(dialog).queryByText("正在读取本机字体…"),
+    ).not.toBeInTheDocument(),
+  );
+  return dialog;
+}
+it("applies appearance only on Save and keeps the plan clean, with native theme and restored focus", async () => {
+  window.localStorage.setItem("rmeter.desktop.theme", "eva");
+  render(<App />);
+  expect(document.documentElement.dataset.theme).toBe("eva");
+  let dialog = await openAppearance();
+  fireEvent.change(within(dialog).getByLabelText("界面字号（px）"), {
+    target: { value: "32" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Dark · 深色" }));
+  expect(document.documentElement.dataset.theme).toBe("eva");
+  fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+  expect(screen.getByRole("button", { name: "视图" })).toHaveFocus();
+  dialog = await openAppearance();
+  expect(within(dialog).getByLabelText("界面字号（px）")).toHaveValue(13);
+  fireEvent.change(within(dialog).getByLabelText("界面字号（px）"), {
+    target: { value: "32" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Dark · 深色" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+  expect(document.documentElement.style.getPropertyValue("--ui-size")).toBe(
+    "32px",
+  );
+  expect(document.documentElement.dataset.theme).toBe("dark");
+  expect(mock.setTheme).toHaveBeenLastCalledWith("dark");
+  expect(
+    JSON.parse(localStorage.getItem("rmeter.desktop.appearance")!).uiSize,
+  ).toBe(32);
+  expect(
+    mock.setTitle.mock.calls.every(([title]) => !title.startsWith("*")),
+  ).toBe(true);
+});
+it("reports font and storage failures, discards Escape drafts and blocks plan shortcuts", async () => {
+  mock.invoke.mockImplementation(async (command) => {
+    if (command === "list_system_fonts") throw new Error("fonts");
+  });
+  render(<App />);
+  let dialog = await openAppearance();
+  expect(within(dialog).getByRole("status")).toHaveTextContent("读取失败");
+  fireEvent.keyDown(dialog, { key: "s", ctrlKey: true });
+  expect(mock.save).not.toHaveBeenCalled();
+  fireEvent.change(within(dialog).getByLabelText("代码字号（px）"), {
+    target: { value: "33" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+  expect(within(dialog).getByRole("alert")).toHaveTextContent("10～32");
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  dialog = await openAppearance();
+  const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("quota");
+  });
+  try {
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Dark · 深色" }),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(screen.getByText(/重启后可能无法保留/)).toBeInTheDocument();
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+it("discards appearance drafts before the dirty-plan window-close prompt", async () => {
+  render(<App />);
+  fireEvent.change(screen.getByRole("textbox", { name: "名称 *" }), {
+    target: { value: "未保存" },
+  });
+  const appearance = await openAppearance();
+  fireEvent.change(within(appearance).getByLabelText("界面字号（px）"), {
+    target: { value: "32" },
+  });
+  act(() => mock.close?.({ preventDefault() {} }));
+  const prompt = await screen.findByRole("dialog");
+  expect(prompt).not.toHaveAccessibleName("外观");
+  expect(document.documentElement.style.getPropertyValue("--ui-size")).toBe(
+    "13px",
+  );
+  fireEvent.click(within(prompt).getByRole("button", { name: "取消" }));
+  expect(mock.destroy).not.toHaveBeenCalled();
+});
+it("loads system fonts and marks monospace choices", async () => {
+  mock.invoke.mockImplementation(async (command) =>
+    command === "list_system_fonts"
+      ? [
+          { family: "Consolas", monospaced: true },
+          { family: "Segoe UI", monospaced: false },
+        ]
+      : undefined,
+  );
+  render(<App />);
+  const dialog = await openAppearance();
+  const select = within(dialog).getByRole("combobox", { name: "代码字体" });
+  expect(
+    within(select).getByRole("option", { name: "Consolas（等宽）" }),
+  ).toBeInTheDocument();
+  fireEvent.change(select, { target: { value: "Consolas" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+  expect(
+    document.documentElement.style.getPropertyValue("--code-font"),
+  ).toMatch(/^"Consolas",/);
+});

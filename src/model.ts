@@ -245,9 +245,9 @@ const fields: Record<Kind, string[]> = {
     "on_error",
     "children",
   ],
-  loop: ["type", "name", "count", "children"],
+  loop: ["type", "name", "count", "timeout_ms", "children"],
   if: ["type", "name", "condition", "evaluate_all", "children"],
-  while: ["type", "name", "condition", "children"],
+  while: ["type", "name", "condition", "timeout_ms", "children"],
   http_defaults: ["type", "name", "settings"],
   http_request: [
     "type",
@@ -339,6 +339,7 @@ export function createNode(kind: Kind): EditorNode {
   if (kind === "gaussian_random_timer")
     Object.assign(data, { deviation_ms: 100, offset_ms: 300 });
   if (kind === "loop") data.count = 1;
+  if (kind === "loop" || kind === "while") data.timeout_ms = 0;
   if (kind === "if" || kind === "while") data.condition = "${enabled}";
   if (kind === "http_request")
     Object.assign(data, {
@@ -605,6 +606,14 @@ export function parseDocument(source: string): Document {
     const data = structuredClone(value),
       node: EditorNode = { id: uid(), kind, data, children: [] };
     inspectEditable(data, kind, path, issues);
+    if (
+      (kind === "loop" || kind === "while") &&
+      "timeout_ms" in data &&
+      (typeof data.timeout_ms !== "number" ||
+        !Number.isSafeInteger(data.timeout_ms) ||
+        data.timeout_ms < 0)
+    )
+      issues.push(`${path}.timeout_ms 必须是非负安全整数，0 表示不限时`);
     for (const key of Object.keys(data))
       if (key !== "enabled" && !fields[kind].includes(key))
         issues.push(`${path}.${key} 不在首版编辑范围内`);

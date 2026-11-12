@@ -22,7 +22,7 @@
 }
 .function-generator h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.3846rem;
 }
 .function-generator > p,
 .function-generator-description {
@@ -87,13 +87,14 @@
 }
 .function-generator-results textarea {
   margin-top: 8px;
-  font-family: Consolas, monospace;
+  font-family: var(--code-font, Consolas, monospace);
+  font-size: var(--code-size, 12px);
   background: var(--code-bg);
   color: var(--code-text);
 }
 .function-generator-results p {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 0.9231rem;
   line-height: 1.65;
   margin: 6px 0 0;
 }

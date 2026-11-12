@@ -1,0 +1,66 @@
+.appearance-dialog {
+  width: min(900px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  margin: auto;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 16px 60px var(--shadow);
+}
+.appearance-dialog::backdrop {
+  background: var(--scrim);
+}
+.appearance-dialog h2 {
+  margin-top: 0;
+  font-size: 1.385rem;
+}
+.appearance-dialog p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.appearance-fonts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.4fr);
+  gap: 16px;
+}
+.appearance-fonts label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.appearance-preview {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 20px;
+  overflow: auto;
+}
+.appearance-preview p {
+  margin: 0 0 12px;
+}
+.appearance-preview pre {
+  margin: 0;
+  line-height: 1.6;
+}
+.appearance-dialog .theme-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.appearance-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.appearance-dialog .appearance-error {
+  color: var(--danger);
+}
+@media (max-width: 1050px) {
+  .appearance-dialog .theme-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

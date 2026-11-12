@@ -1,0 +1,66 @@
+.javascript-editor {
+  min-width: 0;
+}
+.javascript-completions {
+  position: fixed;
+  z-index: 90;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 28px var(--shadow);
+  overflow: hidden;
+  font-family: var(--code-font, Consolas, monospace);
+  font-size: var(--code-size, 12px);
+  max-height: calc(100dvh - 16px);
+  display: flex;
+  flex-direction: column;
+}
+.javascript-completion-list {
+  max-height: min(12em, 40dvh);
+  min-height: 0;
+  overflow-y: auto;
+}
+.javascript-completion-list [role="option"] {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 7px 10px;
+  cursor: pointer;
+  min-height: 30px;
+}
+.javascript-completion-list [aria-selected="true"] {
+  background: var(--selected);
+}
+.javascript-completion-list strong {
+  flex: 0 0 55%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.javascript-completion-list span {
+  min-width: 0;
+  flex: 1;
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.javascript-completion-detail {
+  border-top: 1px solid var(--border);
+  padding: 10px;
+  overflow: auto;
+  max-height: 40dvh;
+  flex-shrink: 0;
+}
+.javascript-completion-detail code {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+.javascript-completion-detail p {
+  margin: 6px 0 0;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}

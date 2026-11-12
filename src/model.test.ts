@@ -667,3 +667,33 @@ it("protects malformed timer lists and processors misplaced in timer arrays", ()
     0,
   );
 });
+
+it("round trips optional per-round timeouts without upgrading version 1", () => {
+  for (const kind of ["loop", "while"] as const) {
+    const root = newDocument().root;
+    const node = createNode(kind);
+    root.children[0].children.push(node);
+    for (const timeout of [undefined, 0, 1234]) {
+      if (timeout === undefined) delete node.data.timeout_ms;
+      else node.data.timeout_ms = timeout;
+      const source = stringify(root),
+        parsed = parseDocument(source);
+      expect(parsed.issues).toEqual([]);
+      expect(stringify(parsed.root)).toBe(source);
+      expect(JSON.parse(source).version).toBe(1);
+    }
+  }
+});
+
+it.each([null, -1, 1.5, 9007199254740992, "${timeout}"])(
+  "protects invalid imported timeout %s",
+  (timeout) => {
+    const root = newDocument().root;
+    const node = createNode("loop");
+    node.data.timeout_ms = timeout;
+    root.children[0].children.push(node);
+    expect(parseDocument(stringify(root)).issues.join()).toContain(
+      "timeout_ms",
+    );
+  },
+);

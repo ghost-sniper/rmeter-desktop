@@ -19,13 +19,14 @@ async function run(args: string[], capture = false): Promise<string> {
     env: {
       ...Bun.env,
       CARGO_NET_GIT_FETCH_WITH_CLI: "true",
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: "3",
       GIT_TERMINAL_PROMPT: "0",
     },
   });
   const output = capture ? await new Response(process.stdout).text() : "";
   if ((await process.exited) !== 0)
     throw Error(
-      `命令失败：${args.join(" ")}。请检查 Rust 工具链与本机 Git 的私有仓库读取权限。`,
+      `命令失败：${args.join(" ")}。请检查 Rust 工具链、网络连接及 Git 仓库地址和提交是否可获取。`,
     );
   return output.trim();
 }

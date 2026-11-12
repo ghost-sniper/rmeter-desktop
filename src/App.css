@@ -1,8 +1,8 @@
 :root {
-  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-family: var(--ui-font, "Segoe UI", "Microsoft YaHei", sans-serif);
   color: var(--text);
   background: var(--canvas);
-  font-size: 13px;
+  font-size: var(--ui-size, 13px);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -96,7 +96,7 @@ p {
   margin-top: 0;
 }
 h3 {
-  font-size: 13px;
+  font-size: 1rem;
   font-weight: 600;
   margin-bottom: 16px;
 }
@@ -104,10 +104,11 @@ h3 {
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
 }
 .app-header {
-  height: 48px;
+  min-height: 3.6923rem;
+  height: auto;
   flex: none;
   display: flex;
   align-items: center;
@@ -122,7 +123,7 @@ h3 {
   gap: 9px;
 }
 .brand strong {
-  font-size: 19px;
+  font-size: 1.4615rem;
   letter-spacing: -0.6px;
   font-weight: 650;
 }
@@ -134,7 +135,7 @@ h3 {
   object-fit: contain;
 }
 .version {
-  font-size: 9px;
+  font-size: 0.6923rem;
   letter-spacing: 1.3px;
   color: var(--muted);
   margin: 5px 0 0 3px;
@@ -180,7 +181,7 @@ nav > .menu-wrap > button {
 .dropdown kbd {
   margin-left: auto;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.8462rem;
 }
 .dropdown hr {
   border: 0;
@@ -201,7 +202,7 @@ nav > .menu-wrap > button {
   gap: 7px;
   align-items: center;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.9231rem;
 }
 .status-dot {
   width: 6px;
@@ -216,7 +217,8 @@ nav > .menu-wrap > button {
   box-shadow: 0 0 0 3px var(--success-bg);
 }
 .toolbar {
-  height: 49px;
+  min-height: 3.7692rem;
+  height: auto;
   flex: none;
   display: flex;
   align-items: center;
@@ -237,7 +239,7 @@ nav > .menu-wrap > button {
 }
 .toolbar button span {
   margin-right: 7px;
-  font-size: 15px;
+  font-size: 1.1538rem;
 }
 .toolbar .run-button {
   color: var(--success);
@@ -249,7 +251,7 @@ nav > .menu-wrap > button {
   flex: 1;
 }
 .file-label {
-  font-size: 12px;
+  font-size: 0.9231rem;
   color: var(--muted);
   max-width: 300px;
   overflow: hidden;
@@ -259,7 +261,7 @@ nav > .menu-wrap > button {
 .dirty-dot {
   color: var(--warning);
   margin-right: 7px;
-  font-size: 8px;
+  font-size: 0.6154rem;
 }
 .active {
   background: var(--selected) !important;
@@ -268,7 +270,7 @@ nav > .menu-wrap > button {
   background: var(--code-bg);
   color: var(--code-text);
   padding: 7px 20px;
-  font-size: 12px;
+  font-size: 0.9231rem;
 }
 .notice {
   padding: 9px 18px;
@@ -287,7 +289,7 @@ nav > .menu-wrap > button {
   border: 0;
   background: transparent;
   padding: 0 6px;
-  font-size: 19px;
+  font-size: 1.4615rem;
 }
 .notice.error {
   background: var(--danger-bg);
@@ -300,7 +302,7 @@ nav > .menu-wrap > button {
 .workspace {
   display: flex;
   flex: 1;
-  min-height: 140px;
+  min-height: max(140px, 16rem);
 }
 .tree-panel {
   display: flex;
@@ -312,22 +314,23 @@ nav > .menu-wrap > button {
 .panel-heading {
   display: flex;
   align-items: center;
-  height: 47px;
+  min-height: 3.6154rem;
+  height: auto;
   padding: 0 14px;
   gap: 8px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 0.9231rem;
   font-weight: 600;
 }
 .panel-heading button {
   border: 0;
   background: transparent;
-  font-size: 18px;
+  font-size: 1.3846rem;
   color: var(--muted);
   padding: 0 4px;
 }
 .count-badge {
-  font-size: 10px;
+  font-size: 0.7692rem;
   font-weight: 400;
   color: var(--muted);
   padding: 1px 6px;
@@ -343,11 +346,12 @@ nav > .menu-wrap > button {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 34px;
+  min-height: 2.6154rem;
+  height: auto;
   border-radius: 4px;
   cursor: default;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 0.9231rem;
   padding-right: 9px;
 }
 .tree-row:hover {
@@ -358,24 +362,24 @@ nav > .menu-wrap > button {
   color: var(--accent);
 }
 .chevron {
-  width: 12px;
+  width: 0.9231rem;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.9231rem;
   flex: none;
 }
 .node-icon {
   font-family: "Segoe UI", sans-serif;
-  width: 18px;
+  width: 1.3846rem;
   text-align: center;
-  font-size: 17px;
+  font-size: 1.3077rem;
   color: var(--muted);
   flex: none;
 }
 .node-icon.javascript {
-  font-size: 9px;
+  font-size: 0.6923rem;
   font-weight: 700;
   color: var(--warning);
 }
@@ -392,7 +396,7 @@ nav > .menu-wrap > button {
 }
 .tree-count {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 0.7692rem;
   color: var(--muted);
 }
 .tree-tools {
@@ -402,7 +406,7 @@ nav > .menu-wrap > button {
 .tree-tools > label {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.8462rem;
   margin-bottom: 8px;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -410,7 +414,7 @@ nav > .menu-wrap > button {
 }
 .tree-tools select {
   padding: 6px 8px;
-  font-size: 12px;
+  font-size: 0.9231rem;
 }
 .node-actions {
   display: flex;
@@ -419,7 +423,7 @@ nav > .menu-wrap > button {
 }
 .node-actions button {
   flex: 1;
-  font-size: 11px;
+  font-size: 0.8462rem;
   padding: 5px 8px;
 }
 .move-row {
@@ -428,10 +432,10 @@ nav > .menu-wrap > button {
   margin-top: 7px;
 }
 .move-row button {
-  font-size: 11px;
+  font-size: 0.8462rem;
 }
 .tree-foot {
-  font-size: 10px;
+  font-size: 0.7692rem;
   color: var(--muted);
   padding: 9px 13px;
   border-top: 1px solid var(--border);
@@ -465,27 +469,28 @@ nav > .menu-wrap > button {
   flex: none;
 }
 .detail-icon {
-  width: 40px;
-  height: 40px;
+  width: 3.0769rem;
+  height: 3.0769rem;
+  flex: none;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--code-bg);
   display: grid;
   place-items: center;
-  font-size: 24px;
+  font-size: 1.8462rem;
   color: var(--accent);
 }
 .detail-icon.javascript {
-  font-size: 16px;
+  font-size: 1.2308rem;
   font-weight: 700;
 }
 .breadcrumb {
-  font-size: 10px;
+  font-size: 0.7692rem;
   color: var(--muted);
   margin-bottom: 5px;
 }
 h1 {
-  font-size: 19px;
+  font-size: 1.4615rem;
   font-weight: 600;
   margin: 0;
   overflow-wrap: anywhere;
@@ -496,7 +501,7 @@ h1 {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 4px 8px;
-  font-size: 10px;
+  font-size: 0.7692rem;
   white-space: nowrap;
 }
 .tabs {
@@ -514,7 +519,7 @@ h1 {
   padding: 10px 0 12px;
   color: var(--muted);
   background: transparent;
-  font-size: 12px;
+  font-size: 0.9231rem;
 }
 .tabs button.selected {
   border-bottom-color: var(--accent);
@@ -522,13 +527,13 @@ h1 {
   font-weight: 600;
 }
 .tabs button span {
-  font-size: 9px;
+  font-size: 0.6923rem;
   margin-left: 4px;
   color: var(--muted);
 }
 .working {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 0.8462rem;
   color: var(--muted);
 }
 .detail-scroll {
@@ -553,13 +558,13 @@ h1 {
   margin-bottom: 0;
 }
 .form-section h3 {
-  font-size: 12px;
+  font-size: 0.9231rem;
   color: var(--text-secondary);
   letter-spacing: 0.3px;
 }
 .form-section summary {
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.9231rem;
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 18px;
@@ -573,7 +578,7 @@ h1 {
 .field label {
   display: block;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 0.9231rem;
   margin-bottom: 8px;
 }
 .required {
@@ -596,12 +601,12 @@ h1 {
 .static-value {
   color: var(--muted);
   padding: 9px 0;
-  font-size: 12px;
+  font-size: 0.9231rem;
 }
 .field small {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.7692rem;
   margin-top: 6px;
   line-height: 1.7;
 }
@@ -611,8 +616,8 @@ h1 {
 .code,
 .source-preview,
 .response-preview pre {
-  font-family: "Cascadia Code", Consolas, monospace;
-  font-size: 12px;
+  font-family: var(--code-font, "Cascadia Code", Consolas, monospace);
+  font-size: var(--code-size, 12px);
   tab-size: 2;
 }
 .code {
@@ -628,7 +633,7 @@ h1 {
   margin: 0;
 }
 .section-line button {
-  font-size: 11px;
+  font-size: 0.8462rem;
   border: 0;
   color: var(--accent);
   padding: 5px 6px;
@@ -638,14 +643,14 @@ h1 {
 }
 .pairs table {
   border: 1px solid var(--border);
-  font-size: 11px;
+  font-size: 0.8462rem;
 }
 .pairs td {
   padding: 4px;
 }
 .pairs td input {
   border-color: transparent;
-  font-size: 12px;
+  font-size: 0.9231rem;
   padding: 5px;
 }
 .pairs td button {
@@ -665,7 +670,7 @@ h1 {
   border: 1px solid var(--border);
   border-top: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.8462rem;
 }
 .source-preview {
   white-space: pre-wrap;
@@ -686,7 +691,7 @@ h1 {
   padding: 14px 16px;
   border-radius: 4px;
   margin-bottom: 18px;
-  font-size: 12px;
+  font-size: 0.9231rem;
   overflow-wrap: anywhere;
   line-height: 1.7;
 }
@@ -712,7 +717,8 @@ h1 {
 .results-heading {
   display: flex;
   align-items: center;
-  height: 41px;
+  min-height: 3.1538rem;
+  height: auto;
   padding: 0 14px;
   gap: 19px;
   border-bottom: 1px solid var(--border);
@@ -720,17 +726,17 @@ h1 {
 }
 .results-heading strong {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 0.9231rem;
 }
 .results-heading button {
-  font-size: 11px;
+  font-size: 0.8462rem;
   padding: 3px 7px;
   background: transparent;
   border-color: transparent;
 }
 .metric {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.8462rem;
 }
 .metric b {
   margin-left: 4px;
@@ -747,7 +753,7 @@ h1 {
 }
 .results-limit {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.7692rem;
 }
 .results-content {
   display: flex;
@@ -758,7 +764,7 @@ h1 {
   width: 64%;
   overflow: auto;
   border-right: 1px solid var(--border);
-  font-size: 11px;
+  font-size: 0.8462rem;
 }
 .results-table thead {
   position: sticky;
@@ -784,24 +790,24 @@ h1 {
   gap: 7px;
 }
 .results-empty > span {
-  font-size: 24px;
+  font-size: 1.8462rem;
   color: var(--muted);
 }
 .results-empty strong {
   font-weight: 400;
 }
 .results-empty p {
-  font-size: 10px;
+  font-size: 0.7692rem;
 }
 .response-preview {
   width: 36%;
   overflow: auto;
   padding: 14px 18px;
-  font-size: 11px;
+  font-size: 0.8462rem;
   color: var(--muted);
 }
 .response-preview h3 {
-  font-size: 12px;
+  font-size: 0.9231rem;
   margin-bottom: 9px;
   color: var(--text-secondary);
 }
@@ -818,19 +824,20 @@ h1 {
   display: grid;
   place-items: center;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.8462rem;
 }
 .statusbar {
   display: flex;
   align-items: center;
-  height: 27px;
+  min-height: 2.0769rem;
+  height: auto;
   flex: none;
   padding: 0 14px;
   gap: 8px;
   background: var(--panel);
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.7692rem;
 }
 .status-separator {
   color: var(--border);
@@ -859,7 +866,7 @@ h1 {
 }
 .node-state {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.7692rem;
   flex-shrink: 0;
   margin-left: 6px;
 }
@@ -883,7 +890,7 @@ h1 {
   right: 100%;
 }
 .menu-caption {
-  font-size: 10px;
+  font-size: 0.7692rem;
   padding: 6px 10px;
   color: var(--muted);
 }
@@ -903,7 +910,7 @@ h1 {
   box-shadow: 0 16px 60px var(--shadow);
 }
 .modal h2 {
-  font-size: 15px;
+  font-size: 1.1538rem;
   font-weight: 500;
   line-height: 1.8;
   margin-bottom: 24px;
@@ -933,7 +940,7 @@ h1 {
 }
 .assertion-card h4 {
   margin: 0;
-  font-size: 13px;
+  font-size: 1rem;
 }
 .assertion-card .section-line {
   margin-bottom: 14px;
@@ -963,4 +970,25 @@ h1 {
 .assertion-results li {
   margin-bottom: 10px;
   overflow-wrap: anywhere;
+}
+
+code,
+pre {
+  font-family: var(--code-font, "Cascadia Code", Consolas, monospace);
+}
+.response-preview pre,
+.source-preview {
+  font-size: var(--code-size, 12px);
+}
+.app-header,
+.toolbar {
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+nav {
+  flex-wrap: wrap;
+}
+.dropdown {
+  max-height: calc(100dvh - 100px);
+  overflow: auto;
 }

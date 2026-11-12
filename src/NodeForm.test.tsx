@@ -4,6 +4,27 @@ import { expect, it } from "vitest";
 import NodeForm, { Drafts } from "./NodeForm";
 import { EditorNode, componentKinds, createNode, labels } from "./model";
 
+it.each([
+  "javascript",
+  "javascript_preprocessor",
+  "javascript_postprocessor",
+] as const)("uses completion in %s and persists accepted code", (kind) => {
+  render(<Harness initial={createNode(kind)} />);
+  const input = screen.getByRole("textbox", { name: "JavaScript *" });
+  fireEvent.change(input, { target: { value: "functions.date" } });
+  expect(
+    screen.getByRole("option", { name: /^dateTimeConvert/ }),
+  ).toBeInTheDocument();
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(JSON.parse(screen.getByTestId("data").textContent!).script).toBe(
+    "functions.dateTimeConvert()",
+  );
+  fireEvent.change(input, { target: { value: "prev." } });
+  expect(!!screen.queryByRole("listbox")).toBe(
+    kind === "javascript_postprocessor",
+  );
+});
+
 function Harness({
   initial,
   disabled = false,
@@ -334,3 +355,22 @@ it("edits gaussian fractional deviation and variable delays while retaining inva
   fireEvent.change(offset, { target: { value: "0" } });
   expect(JSON.parse(screen.getByTestId("data").textContent!).offset_ms).toBe(0);
 });
+
+it.each(["loop", "while"] as const)(
+  "edits %s round timeouts and rejects invalid values",
+  (kind) => {
+    render(<Harness initial={createNode(kind)} />);
+    const input = screen.getByLabelText("每轮超时（ms）");
+    expect(input).toHaveValue("0");
+    fireEvent.change(input, { target: { value: "1234" } });
+    expect(JSON.parse(screen.getByTestId("data").textContent!).timeout_ms).toBe(
+      1234,
+    );
+    for (const value of ["-1", "1.5", "9007199254740992"]) {
+      fireEvent.change(input, { target: { value } });
+      expect(
+        JSON.parse(screen.getByTestId("data").textContent!).timeout_ms,
+      ).toBe(1234);
+    }
+  },
+);

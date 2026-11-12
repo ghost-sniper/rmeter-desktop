@@ -1,4 +1,5 @@
 mod bridge;
+mod fonts;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -16,6 +17,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            fonts::list_system_fonts,
             bridge::read_script,
             bridge::write_script,
             bridge::validate_script,

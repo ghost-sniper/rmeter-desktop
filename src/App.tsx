@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -32,7 +32,8 @@ import {
 import NodeForm, { Draft, Drafts } from "./NodeForm";
 import { RunMessage, emptyResults, receiveResults } from "./results";
 import "./App.css";
-import ThemePicker from "./ThemePicker";
+import AppearanceDialog from "./AppearanceDialog";
+import { applyAppearance, readAppearance, saveAppearance } from "./appearance";
 import FunctionGenerator from "./FunctionGenerator";
 
 const filter = [{ name: "rmeter 测试脚本", extensions: ["json"] }];
@@ -92,6 +93,16 @@ export default function App() {
   const [selectedResult, setSelectedResult] = useState<number>();
   const [menu, setMenu] = useState<string>();
   const [functionGeneratorOpen, setFunctionGeneratorOpen] = useState(false);
+  const [appearance, setAppearance] = useState(readAppearance);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const viewMenu = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => applyAppearance(appearance), [appearance]);
+  useEffect(() => {
+    if (isTauri())
+      void getCurrentWindow()
+        .setTheme(appearance.theme === "light" ? "light" : "dark")
+        .catch(() => {});
+  }, [appearance.theme]);
   const toolsMenu = useRef<HTMLButtonElement>(null);
   const [contextCategory, setContextCategory] = useState<string>();
   const [context, setContext] = useState<{
@@ -299,6 +310,7 @@ export default function App() {
   closeHandler.current = async () => {
     if (lock.current || prompt) return;
     setFunctionGeneratorOpen(false);
+    setAppearanceOpen(false);
     if (active.current) {
       if (
         (await ask("测试正在运行，停止后关闭窗口？", [
@@ -343,7 +355,7 @@ export default function App() {
   }, [dirty, document.root.data.name]);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (functionGeneratorOpen) return;
+      if (functionGeneratorOpen || appearanceOpen) return;
       if (prompt) {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -599,10 +611,16 @@ export default function App() {
           <span className="version">DESKTOP</span>
         </div>
         <nav aria-label="主菜单">
-          {["文件", "编辑", "运行", "工具", "帮助"].map((name) => (
+          {["文件", "编辑", "视图", "运行", "工具", "帮助"].map((name) => (
             <div className="menu-wrap" key={name}>
               <button
-                ref={name === "工具" ? toolsMenu : undefined}
+                ref={
+                  name === "工具"
+                    ? toolsMenu
+                    : name === "视图"
+                      ? viewMenu
+                      : undefined
+                }
                 className={menu === name ? "active" : ""}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -648,6 +666,16 @@ export default function App() {
                         停止运行
                       </button>
                     </>
+                  ) : name === "视图" ? (
+                    <button
+                      onClick={() => {
+                        setMenu(undefined);
+                        setContext(undefined);
+                        setAppearanceOpen(true);
+                      }}
+                    >
+                      外观
+                    </button>
                   ) : name === "工具" ? (
                     <button
                       onClick={() => {
@@ -674,7 +702,6 @@ export default function App() {
             </div>
           ))}
         </nav>
-        <ThemePicker />
         <span className="header-state">
           <span className={`status-dot ${running ? "live" : ""}`} />
           {statusLabel[runState]}
@@ -1267,6 +1294,23 @@ export default function App() {
             删除节点
           </button>
         </div>
+      )}
+      {appearanceOpen && (
+        <AppearanceDialog
+          settings={appearance}
+          returnFocus={viewMenu}
+          onClose={() => setAppearanceOpen(false)}
+          onSave={(settings) => {
+            const persisted = saveAppearance(settings);
+            setAppearance(settings);
+            setAppearanceOpen(false);
+            if (!persisted)
+              setNotice({
+                text: "外观已应用，但本地存储失败，重启后可能无法保留。",
+                error: true,
+              });
+          }}
+        />
       )}
       {functionGeneratorOpen && (
         <FunctionGenerator

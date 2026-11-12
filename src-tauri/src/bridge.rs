@@ -927,6 +927,35 @@ mod tests {
         );
     }
     #[tokio::test]
+    async fn controller_timeout_example_reports_failures_and_continues() {
+        configure_worker().unwrap();
+        let script: Value =
+            serde_json::from_str(include_str!("../../examples/loop-timeouts.json")).unwrap();
+        let (status, summary, events) = collect(script).await;
+        assert_eq!(status, "completed");
+        assert_eq!(summary.samples, 4);
+        assert_eq!(summary.passed, 2);
+        assert_eq!(summary.failed, 2);
+        let failures: Vec<_> = events
+            .iter()
+            .filter_map(|preview| match &preview.event {
+                ReportEvent::SampleCompleted {
+                    label,
+                    response_code: Some(code),
+                    elapsed_ms,
+                    success,
+                    ..
+                } if code == "ControllerTimeout" => {
+                    assert!(!success);
+                    assert!(*elapsed_ms >= 100.0);
+                    Some(label.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(failures, ["Loop 每轮预算", "While 每轮预算"]);
+    }
+    #[tokio::test]
     async fn native_functions_example_runs_without_external_services() {
         configure_worker().unwrap();
         let script: Value =
