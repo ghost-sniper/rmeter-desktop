@@ -24,12 +24,10 @@ jobs:
             runner: windows-2025
             target: x86_64-pc-windows-msvc
             bundles: nsis
-            target-dir: .cache/windows-build/target
           - platform: Linux
             runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             bundles: deb,rpm
-            target-dir: src-tauri/target
     env:
       TARGET: ${{ matrix.target }}
       BUNDLES: ${{ matrix.bundles }}
@@ -48,18 +46,44 @@ jobs:
         with:
           bun-version: 1.4.4
 
-      - name: Prepare Windows build volume
+      - name: Prepare minimal Windows Rust toolchain
         if: runner.os == 'Windows'
-        uses: samypr100/setup-dev-drive@562171fe8df7401fdf582d766cd3b6ab80d5b1a0 # v4.1.0
+        id: rust-dist
+        shell: pwsh
+        run: |
+          # Profiles only affect new installations. Trim unused preinstalled components
+          # so updating stable does not also update formatters or other target libraries.
+          $installed = @(rustup component list --toolchain stable --installed)
+          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the preinstalled toolchain.' }
+          $extras = @($installed | Where-Object { $_ -match '^(clippy|rustfmt|rust-docs)(-|$)' })
+          if ($extras.Count -gt 0) {
+            rustup component remove --toolchain stable @extras
+            if ($LASTEXITCODE -ne 0) { throw 'Could not remove unused toolchain components.' }
+          }
+          $targets = @(rustup target list --toolchain stable --installed)
+          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect Rust targets.' }
+          $extraTargets = @($targets | Where-Object { $_ -ne $env:TARGET })
+          if ($extraTargets.Count -gt 0) {
+            rustup target remove --toolchain stable @extraTargets
+            if ($LASTEXITCODE -ne 0) { throw 'Could not remove unused Rust targets.' }
+          }
+          $toolchainRoot = (rustup show home).Trim()
+          if ($LASTEXITCODE -ne 0) { throw 'Could not locate rustup.' }
+          $checksum = (Invoke-WebRequest 'https://static.rust-lang.org/dist/channel-rust-stable.toml.sha256' -MaximumRetryCount 3 -RetryIntervalSec 2 -TimeoutSec 30).Content
+          $digest = ($checksum.Trim() -split '\s+')[0]
+          if ($digest -notmatch '^[0-9a-f]{64}$') { throw 'Invalid stable manifest checksum.' }
+          "root=$toolchainRoot" >> $env:GITHUB_OUTPUT
+          "key=rustup-minimal-v1-$env:TARGET-$digest" >> $env:GITHUB_OUTPUT
+
+      - name: Cache Windows Rust toolchain
+        if: runner.os == 'Windows'
+        uses: actions/cache@v6
         with:
-          drive-size: 10GB
-          drive-path: ${{ runner.temp }}/rmeter-build.vhdx
-          mount-path: ${{ github.workspace }}/.cache/windows-build
-          # Keep normal antivirus filtering; only change the build filesystem.
-          trusted-dev-drive: false
-          env-mapping: |
-            CARGO_HOME,{{ DEV_DRIVE }}/cargo
-            CARGO_TARGET_DIR,{{ DEV_DRIVE }}/target
+          path: |
+            ${{ steps.rust-dist.outputs.root }}/toolchains/stable-x86_64-pc-windows-msvc
+            ${{ steps.rust-dist.outputs.root }}/update-hashes/stable-x86_64-pc-windows-msvc
+          # No fallback: rustup still checks stable after restoring this exact release.
+          key: ${{ steps.rust-dist.outputs.key }}
 
       - uses: dtolnay/rust-toolchain@stable
         id: toolchain
@@ -83,7 +107,7 @@ jobs:
       - name: Cache Cargo dependencies and desktop build
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> ../${{ matrix.target-dir }}
+          workspaces: src-tauri -> target
           # Keep the profile in the restore prefix, not just the manifest hash.
           # Otherwise a Thin LTO build restores and re-saves obsolete Fat LTO artifacts.
           shared-key: desktop-${{ matrix.target }}-${{ steps.worker.outputs.profile }}
@@ -169,7 +193,7 @@ jobs:
         if: env.BUILD_PACKAGES == 'true' && runner.os == 'Windows'
         shell: pwsh
         run: |
-          $output = "$env:CARGO_TARGET_DIR/$env:TARGET/release"
+          $output = "src-tauri/target/$env:TARGET/release"
           New-Item -ItemType Directory -Path portable
           Copy-Item "$output/rmeter-desktop.exe" portable/
           Copy-Item "src-tauri/binaries/rmeter-js-worker-$env:TARGET.exe" portable/rmeter-js-worker.exe
@@ -202,7 +226,7 @@ jobs:
         if: env.BUILD_PACKAGES == 'true' && runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
-          path: ${{ matrix.target-dir }}/${{ matrix.target }}/release/bundle/nsis/*.exe
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
           archive: false
           if-no-files-found: error
 
