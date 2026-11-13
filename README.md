@@ -37,6 +37,8 @@ worker 成品继续按 `rev` 隔离，Cargo 编译目录使用 `.cache/worker-ta
 
 GitHub Actions 在推送 `main` 时仅构建可执行文件并预热缓存；版本标签和手动运行保留原有安装包与产物上传流程。CI 分别缓存桌面端 Cargo 依赖、worker 共享编译目录和精确版本的 worker 成品。worker 成品缓存按平台、目标架构、Rust 工具链、核心仓库及提交、构建脚本和 O3 配置区分，不回退到其他版本；编译缓存允许跨核心提交复用。不同标签读取默认分支预热的缓存，首次运行仍需要完整编译。
 
+桌面编译缓存将 Cargo `profile` 配置的哈希放入恢复前缀：相同 profile 仍可跨依赖更新复用，但不同 LTO / codegen-units 配置不会互相恢复、累积无用产物。首次启用或变更 profile 时会重新填充缓存；O3、Thin LTO / 8 保持不变。工具链由 rust-toolchain 安装，不再缓存 Cargo bin 目录。比较 CI 耗时时，应使用新缓存填充后的重复运行，分别记录缓存压缩体积、恢复耗时、构建步骤及整个 job 耗时（不含排队），避免把首次填充与缓存命中混比。
+
 开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 和提取器的校验与执行报错，未使用这些组件的 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。分发无安装包版本时，须将 `rmeter-desktop.exe` 和同版本的 `rmeter-js-worker.exe` 放在同一目录。
 
 ### 发布配置基准
