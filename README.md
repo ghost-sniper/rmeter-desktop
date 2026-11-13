@@ -43,6 +43,8 @@ Linux CI 安装系统依赖时使用 `--no-install-recommends`，保留必需依
 
 apt 下载缓存仅保存 `.deb` 归档文件；索引更新后，通过 `apt-get --print-uris` 解析本次安装事务，以下载 URL、版本、校验信息的哈希生成精确缓存键。安全更新或 runner 预装包变化会重新计算缓存键，不使用旧版本回退；命中后仍由 apt/dpkg 正常校验和安装，不缓存已安装的系统目录。评估收益需包含索引解析、归档恢复、安装及缓存保存的总耗时。
 
+Windows CI 在临时 ReFS 构建卷中恢复 Cargo 依赖并编译桌面端，目录为 `.cache/windows-build/{cargo,target}`，以减少缓存解压和 Cargo 大量文件操作的耗时。构建卷动态分配，上限 10 GiB，job 结束前先保存 Cargo 缓存，再卸载卷；不缓存整个虚拟磁盘。创建卷的 action 固定提交，保持默认杀毒过滤配置。Windows 安装包读取相同的新 target 目录；本地构建路径、Linux 路径、O3 / Thin LTO / 8 不变。首次切换路径需重新填充 Windows 编译缓存，比较耗时时须计入创建和卸载卷的开销。
+
 开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 和提取器的校验与执行报错，未使用这些组件的 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。分发无安装包版本时，须将 `rmeter-desktop.exe` 和同版本的 `rmeter-js-worker.exe` 放在同一目录。
 
 ### 发布配置基准

@@ -24,10 +24,12 @@ jobs:
             runner: windows-2025
             target: x86_64-pc-windows-msvc
             bundles: nsis
+            target-dir: .cache/windows-build/target
           - platform: Linux
             runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             bundles: deb,rpm
+            target-dir: src-tauri/target
     env:
       TARGET: ${{ matrix.target }}
       BUNDLES: ${{ matrix.bundles }}
@@ -45,6 +47,19 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+
+      - name: Prepare Windows build volume
+        if: runner.os == 'Windows'
+        uses: samypr100/setup-dev-drive@562171fe8df7401fdf582d766cd3b6ab80d5b1a0 # v4.1.0
+        with:
+          drive-size: 10GB
+          drive-path: ${{ runner.temp }}/rmeter-build.vhdx
+          mount-path: ${{ github.workspace }}/.cache/windows-build
+          # Keep normal antivirus filtering; only change the build filesystem.
+          trusted-dev-drive: false
+          env-mapping: |
+            CARGO_HOME,{{ DEV_DRIVE }}/cargo
+            CARGO_TARGET_DIR,{{ DEV_DRIVE }}/target
 
       - uses: dtolnay/rust-toolchain@stable
         id: toolchain
@@ -68,7 +83,7 @@ jobs:
       - name: Cache Cargo dependencies and desktop build
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: src-tauri -> ../${{ matrix.target-dir }}
           # Keep the profile in the restore prefix, not just the manifest hash.
           # Otherwise a Thin LTO build restores and re-saves obsolete Fat LTO artifacts.
           shared-key: desktop-${{ matrix.target }}-${{ steps.worker.outputs.profile }}
@@ -154,7 +169,7 @@ jobs:
         if: env.BUILD_PACKAGES == 'true' && runner.os == 'Windows'
         shell: pwsh
         run: |
-          $output = "src-tauri/target/$env:TARGET/release"
+          $output = "$env:CARGO_TARGET_DIR/$env:TARGET/release"
           New-Item -ItemType Directory -Path portable
           Copy-Item "$output/rmeter-desktop.exe" portable/
           Copy-Item "src-tauri/binaries/rmeter-js-worker-$env:TARGET.exe" portable/rmeter-js-worker.exe
@@ -187,7 +202,7 @@ jobs:
         if: env.BUILD_PACKAGES == 'true' && runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+          path: ${{ matrix.target-dir }}/${{ matrix.target }}/release/bundle/nsis/*.exe
           archive: false
           if-no-files-found: error
 
