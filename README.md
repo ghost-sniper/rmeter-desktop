@@ -33,6 +33,10 @@ bun run prepare:worker --force
 
 脚本直接读取 `src-tauri/Cargo.toml` 中的 Git 仓库和 `rev`，从同一提交构建 `rmeter-component` 的 `rmeter-js-worker`，缓存到 `.cache/worker/<rev>/<target>/`，复制到 `src-tauri/binaries/rmeter-js-worker-<target>.exe`，由 Tauri `externalBin` 打包。缓存和二进制不提交版本控制。
 
+worker 成品继续按 `rev` 隔离，Cargo 编译目录使用 `.cache/worker-target/<target>/`，更新核心提交时复用未变化的依赖。旧的按提交划分的编译目录不会自动迁移；首次强制构建会填充共享目录，之后由 Cargo 校验依赖指纹并复用。桌面端仅生成 `rlib` 供主程序使用，不再生成额外的静态库和 DLL；桌面端及 worker 均保持 O3。
+
+GitHub Actions 在推送 `main` 时仅构建可执行文件并预热缓存；版本标签和手动运行保留原有安装包与产物上传流程。CI 分别缓存桌面端 Cargo 依赖、worker 共享编译目录和精确版本的 worker 成品。worker 成品缓存按平台、目标架构、Rust 工具链、核心仓库及提交、构建脚本和 O3 配置区分，不回退到其他版本；编译缓存允许跨核心提交复用。不同标签读取默认分支预热的缓存，首次运行仍需要完整编译。
+
 开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 和提取器的校验与执行报错，未使用这些组件的 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。分发无安装包版本时，须将 `rmeter-desktop.exe` 和同版本的 `rmeter-js-worker.exe` 放在同一目录。
 
 ## 使用

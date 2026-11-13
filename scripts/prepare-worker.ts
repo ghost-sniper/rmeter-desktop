@@ -36,7 +36,11 @@ const target =
 const extension = target.includes("windows") ? ".exe" : "";
 const cache = join(root, ".cache", "worker", rev, target);
 const binary = join(cache, "bin", `rmeter-js-worker${extension}`);
+// Keep installed binaries revision-specific, but let Cargo reuse unchanged
+// dependencies across core revisions in a stable compilation directory.
+const buildCache = join(root, ".cache", "worker-target", target);
 if (!existsSync(binary) || Bun.argv.includes("--force")) {
+  console.log(`构建 rmeter ${rev} worker，编译缓存：${buildCache}`);
   await run([
     "cargo",
     "install",
@@ -50,12 +54,14 @@ if (!existsSync(binary) || Bun.argv.includes("--force")) {
     "--root",
     cache,
     "--target-dir",
-    join(cache, "target"),
+    buildCache,
     "--bin",
     "rmeter-js-worker",
     "--force",
     "rmeter-component",
   ]);
+} else {
+  console.log(`复用 rmeter ${rev} worker：${binary}`);
 }
 const destination = join(root, "src-tauri", "binaries");
 mkdirSync(destination, { recursive: true });

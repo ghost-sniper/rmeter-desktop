@@ -12,7 +12,8 @@ edition = "2024"
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "rmeter_desktop_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# Desktop binaries only need the Rust library; avoid unused static/DLL outputs.
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
