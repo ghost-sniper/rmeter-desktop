@@ -117,14 +117,16 @@ jobs:
           # Toolchains come from rust-toolchain; the worker has its own exact cache.
           cache-bin: false
 
-      - name: Cache complete Windows Cargo registry index
+      - name: Cache unpacked Windows Cargo sources and index
         if: runner.os == 'Windows'
         uses: actions/cache@v6
         with:
-          # rust-cache prunes registry metadata (including config.json), preventing
-          # offline resolution. Save this small index before its post-job cleanup.
-          path: ~/.cargo/registry/index
-          key: cargo-index-v1-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          # rust-cache removes most unpacked sources and registry config.json.
+          # Save them before its cleanup to avoid thousands of per-crate file writes.
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/src
+          key: cargo-sources-v1-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
 
       - name: Cache matching worker executable
         id: worker-binary
