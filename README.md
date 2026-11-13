@@ -41,6 +41,8 @@ GitHub Actions 在推送 `main` 时仅构建可执行文件并预热缓存；版
 
 Linux CI 安装系统依赖时使用 `--no-install-recommends`，保留必需依赖，跳过可选推荐包；更新 apt 索引时不下载翻译索引，`rpm` 仅在安装包流程中显式请求。每次仍执行索引更新，并在日志和 job 摘要中分别记录更新、安装耗时；Ubuntu 22.04、Rust 发布参数和应用运行时依赖声明均保持不变。
 
+apt 下载缓存仅保存 `.deb` 归档文件；索引更新后，通过 `apt-get --print-uris` 解析本次安装事务，以下载 URL、版本、校验信息的哈希生成精确缓存键。安全更新或 runner 预装包变化会重新计算缓存键，不使用旧版本回退；命中后仍由 apt/dpkg 正常校验和安装，不缓存已安装的系统目录。评估收益需包含索引解析、归档恢复、安装及缓存保存的总耗时。
+
 开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 和提取器的校验与执行报错，未使用这些组件的 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。分发无安装包版本时，须将 `rmeter-desktop.exe` 和同版本的 `rmeter-js-worker.exe` 放在同一目录。
 
 ### 发布配置基准

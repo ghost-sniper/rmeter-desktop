@@ -93,7 +93,8 @@ jobs:
           restore-keys: |
             worker-build-v1-${{ runner.os }}-${{ matrix.target }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('scripts/prepare-worker.ts', '.cargo/config.toml') }}-o3-${{ steps.worker.outputs.repo }}-
 
-      - name: Install Linux build and package tools
+      - name: Resolve Linux system dependencies
+        id: apt
         if: runner.os == 'Linux'
         run: |
           packages=(libwebkit2gtk-4.1-dev libdbus-1-dev libssl-dev)
@@ -104,11 +105,38 @@ jobs:
           started=$SECONDS
           sudo apt-get -o Acquire::Languages=none update
           update_seconds=$((SECONDS - started))
+          # Key downloaded .debs by the exact transaction (URLs, versions and checksums).
+          # Resolving after update keeps security updates visible on every run.
+          mkdir -p "$RUNNER_TEMP/rmeter-apt"
+          sudo apt-get -o Dir::Cache::archives="$RUNNER_TEMP/rmeter-apt" -qq --print-uris install -y --no-install-recommends "${packages[@]}" > "$RUNNER_TEMP/apt-plan.txt"
+          cat "$RUNNER_TEMP/apt-plan.txt"
+          digest=$(LC_ALL=C sort "$RUNNER_TEMP/apt-plan.txt" | sha256sum | cut -d ' ' -f 1)
+          echo "key=apt-debs-v1-${RUNNER_OS}-${RUNNER_ARCH}-${digest}" >> "$GITHUB_OUTPUT"
+          printf 'APT index update: %ss\n' "$update_seconds"
+          printf 'Linux apt index update: **%ss**.\n' "$update_seconds" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cache Linux dependency downloads
+        if: runner.os == 'Linux'
+        uses: actions/cache@v6
+        with:
+          # Cache archives only; dpkg still installs and verifies them normally.
+          # Exclude root-owned partial downloads, locks and installed system files.
+          path: ${{ runner.temp }}/rmeter-apt/*.deb
+          key: ${{ steps.apt.outputs.key }}
+
+      - name: Install Linux build and package tools
+        if: runner.os == 'Linux'
+        run: |
+          packages=(libwebkit2gtk-4.1-dev libdbus-1-dev libssl-dev)
+          if [[ "$BUILD_PACKAGES" == 'true' ]]; then
+            packages+=(rpm)
+          fi
+          mkdir -p "$RUNNER_TEMP/rmeter-apt"
           started=$SECONDS
-          sudo apt-get install -y --no-install-recommends "${packages[@]}"
+          sudo apt-get -o Dir::Cache::archives="$RUNNER_TEMP/rmeter-apt" install -y --no-install-recommends "${packages[@]}"
           install_seconds=$((SECONDS - started))
-          printf 'APT index update: %ss; package installation: %ss\n' "$update_seconds" "$install_seconds"
-          printf 'Linux system dependencies: index **%ss**, install **%ss**.\n' "$update_seconds" "$install_seconds" >> "$GITHUB_STEP_SUMMARY"
+          printf 'APT package installation: %ss\n' "$install_seconds"
+          printf 'Linux apt package installation: **%ss**.\n' "$install_seconds" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
