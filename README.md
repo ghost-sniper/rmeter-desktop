@@ -39,6 +39,8 @@ GitHub Actions 在推送 `main` 时仅构建可执行文件并预热缓存；版
 
 桌面编译缓存将 Cargo `profile` 配置的哈希放入恢复前缀：相同 profile 仍可跨依赖更新复用，但不同 LTO / codegen-units 配置不会互相恢复、累积无用产物。首次启用或变更 profile 时会重新填充缓存；O3、Thin LTO / 8 保持不变。工具链由 rust-toolchain 安装，不再缓存 Cargo bin 目录。比较 CI 耗时时，应使用新缓存填充后的重复运行，分别记录缓存压缩体积、恢复耗时、构建步骤及整个 job 耗时（不含排队），避免把首次填充与缓存命中混比。
 
+Linux CI 安装系统依赖时使用 `--no-install-recommends`，保留必需依赖，跳过可选推荐包；更新 apt 索引时不下载翻译索引，`rpm` 仅在安装包流程中显式请求。每次仍执行索引更新，并在日志和 job 摘要中分别记录更新、安装耗时；Ubuntu 22.04、Rust 发布参数和应用运行时依赖声明均保持不变。
+
 开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 和提取器的校验与执行报错，未使用这些组件的 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。分发无安装包版本时，须将 `rmeter-desktop.exe` 和同版本的 `rmeter-js-worker.exe` 放在同一目录。
 
 ### 发布配置基准

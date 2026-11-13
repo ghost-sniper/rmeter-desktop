@@ -96,8 +96,19 @@ jobs:
       - name: Install Linux build and package tools
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libdbus-1-dev libssl-dev rpm
+          packages=(libwebkit2gtk-4.1-dev libdbus-1-dev libssl-dev)
+          if [[ "$BUILD_PACKAGES" == 'true' ]]; then
+            packages+=(rpm)
+          fi
+          # Keep package indexes fresh, but omit translations and optional desktop services.
+          started=$SECONDS
+          sudo apt-get -o Acquire::Languages=none update
+          update_seconds=$((SECONDS - started))
+          started=$SECONDS
+          sudo apt-get install -y --no-install-recommends "${packages[@]}"
+          install_seconds=$((SECONDS - started))
+          printf 'APT index update: %ss; package installation: %ss\n' "$update_seconds" "$install_seconds"
+          printf 'Linux system dependencies: index **%ss**, install **%ss**.\n' "$update_seconds" "$install_seconds" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
