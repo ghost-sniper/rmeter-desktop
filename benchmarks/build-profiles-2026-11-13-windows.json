@@ -1,0 +1,2804 @@
+{
+  "date": "2026-11-13",
+  "environment": {
+    "os": "Windows 11 Pro",
+    "os_release": "10.0.26300",
+    "cpu": "Intel(R) Core(TM) Ultra 9 185H",
+    "logical_processors": 22,
+    "total_memory_bytes": 33945935872,
+    "power_mode": "Performance",
+    "bun": "1.4.4",
+    "runtime_threads": 4
+  },
+  "decision": {
+    "selected": "thin-8",
+    "opt_level": 3,
+    "rationale": "About 41% less cold-build time and 70% less repeated-build time; accepts about 2% CPU microbenchmark elapsed-time cost and 4.3% executable size increase. Thin/16 has a repeatable 6-7% date conversion penalty. No claim of all-platform or tail-latency equivalence.",
+    "limitations": [
+      "Single Windows host; one cold build and two complete rebuilds per profile",
+      "Engine harness excludes WebView rendering, full Tauri IPC, JDBC and remote network",
+      "Fixed O3 worker; its own profile is not varied",
+      "Parsing interval remains wide; JavaScript p95 is noisy and rose in confirmation",
+      "Results precede CI/Linux verification of the selected profile"
+    ]
+  },
+  "source_hashes": {
+    "harness": "f060de11be37171bafea5b8a7f081a731f902be38d607b61fe414f8e725e270c",
+    "runner": "866e6765f518c02b1531aa1505805a0f125d1d35692fe30f7be92b8e27176b4b",
+    "summary": "576e2de9c8bf8e9c65fe6d3d4bd40d57f7d5c84f5736628254e668f05a06c1e0"
+  },
+  "builds": {
+    "timestamp": "2026-11-13T02:02:00.790Z",
+    "target": "x86_64-pc-windows-msvc",
+    "worker_rev": "71dacf95889c9cd8a5b252bc36685b615d5e0eac",
+    "worker_sha256": "6af2d5f68292686b0e9d3b350cf8f3fb4648b817ab59c28cc326013d1edd751a",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: x86_64-pc-windows-msvc\nrelease: 1.99.1\nLLVM version: 23.1.1",
+    "commit": "75f9d63b9621f811d19640987bdfd7a54ce2b27b",
+    "methodology": "One empty-target build and two complete Tauri rebuilds per profile; cached source downloads, offline, fixed O3 worker, no bundles. Harness build excluded from app timings.",
+    "variants": [
+      {
+        "name": "fat-1",
+        "lto": "fat",
+        "units": 1,
+        "opt_level": 3,
+        "rebuild_seconds": [
+          129.7837722,
+          122.13934579999996
+        ],
+        "cold_seconds": 225.7501385,
+        "exe_bytes": 26267136,
+        "harness_build_seconds": 95.36157079999998
+      },
+      {
+        "name": "thin-16",
+        "lto": "thin",
+        "units": 16,
+        "opt_level": 3,
+        "rebuild_seconds": [
+          44.252805099999996,
+          43.225725399999995
+        ],
+        "cold_seconds": 133.58148089999997,
+        "exe_bytes": 27418624,
+        "harness_build_seconds": 31.280643800000078
+      },
+      {
+        "name": "thin-8",
+        "lto": "thin",
+        "units": 8,
+        "opt_level": 3,
+        "rebuild_seconds": [
+          38.054604400000066,
+          37.67170380000002
+        ],
+        "cold_seconds": 133.10424250000005,
+        "exe_bytes": 27409408,
+        "harness_build_seconds": 34.052257899999965
+      }
+    ]
+  },
+  "screening": {
+    "raw": {
+      "timestamp": "2026-11-13T02:20:20.566Z",
+      "worker_sha256": "6af2d5f68292686b0e9d3b350cf8f3fb4648b817ab59c28cc326013d1edd751a",
+      "repetitions": 12,
+      "scale": 2,
+      "samples": [
+        {
+          "variant": "fat-1",
+          "round": 0,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 789353.8270636275,
+              "seconds": 0.5067436
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 809941.874521375,
+              "seconds": 0.2469313
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4766.6600727869,
+              "seconds": 0.0839162
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 30153.107112788166,
+              "p50_ms": 0.4288,
+              "p95_ms": 0.9018,
+              "seconds": 1.0612505,
+              "serialized_bytes": 148634606
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.60102211495944,
+              "p50_ms": 62.1196,
+              "p95_ms": 67.0726,
+              "seconds": 1.0389438,
+              "serialized_bytes": 21340
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 0,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 770774.5417022748,
+              "seconds": 0.5189585
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 771283.8675566769,
+              "seconds": 0.2593079
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4382.236167471538,
+              "seconds": 0.0912776
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36343.28412452663,
+              "p50_ms": 0.4137,
+              "p95_ms": 0.5568,
+              "seconds": 0.8804928,
+              "serialized_bytes": 148634776
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.88372730178542,
+              "p50_ms": 63.5839,
+              "p95_ms": 67.18889999999999,
+              "seconds": 1.051184,
+              "serialized_bytes": 21406
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 0,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 765469.5169944757,
+              "seconds": 0.5225551
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 812727.9701956399,
+              "seconds": 0.2460848
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4392.3897455269,
+              "seconds": 0.0910666
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36565.17697088589,
+              "p50_ms": 0.3906,
+              "p95_ms": 0.5569999999999999,
+              "seconds": 0.8751496,
+              "serialized_bytes": 148638876
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 57.29541129108137,
+              "p50_ms": 67.89710000000001,
+              "p95_ms": 72.8505,
+              "seconds": 1.1170179,
+              "serialized_bytes": 21299
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 1,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 784595.1028319764,
+              "seconds": 0.5098171
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 794843.0582381508,
+              "seconds": 0.251622
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4679.314854718972,
+              "seconds": 0.0854826
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 37630.598756920204,
+              "p50_ms": 0.3805,
+              "p95_ms": 0.5974,
+              "seconds": 0.8503718,
+              "serialized_bytes": 148636142
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 63.29122060777966,
+              "p50_ms": 60.831900000000005,
+              "p95_ms": 65.4007,
+              "seconds": 1.0111987,
+              "serialized_bytes": 21327
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 1,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 788259.8159531568,
+              "seconds": 0.5074469
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 778646.4010963342,
+              "seconds": 0.256856
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4628.63318776282,
+              "seconds": 0.0864186
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36863.76879044215,
+              "p50_ms": 0.4094,
+              "p95_ms": 0.5251,
+              "seconds": 0.868061,
+              "serialized_bytes": 148636917
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.037686781699506,
+              "p50_ms": 65.0421,
+              "p95_ms": 67.807,
+              "seconds": 1.0659971,
+              "serialized_bytes": 21351
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 1,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 799991.0401003507,
+              "seconds": 0.5000056
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 813244.1692426176,
+              "seconds": 0.2459286
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 5114.075854530112,
+              "seconds": 0.0782155
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 38401.00149811907,
+              "p50_ms": 0.3791,
+              "p95_ms": 0.5408000000000001,
+              "seconds": 0.8333116,
+              "serialized_bytes": 148635556
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.92171702148014,
+              "p50_ms": 63.5932,
+              "p95_ms": 67.4561,
+              "seconds": 1.0505285,
+              "serialized_bytes": 21374
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 2,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 772472.6288807817,
+              "seconds": 0.5178177
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 787544.5110313328,
+              "seconds": 0.2539539
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4587.1296609537785,
+              "seconds": 0.0872005
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36053.61623404205,
+              "p50_ms": 0.4025,
+              "p95_ms": 0.5795,
+              "seconds": 0.887567,
+              "serialized_bytes": 148636572
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 59.796017099418535,
+              "p50_ms": 64.7469,
+              "p95_ms": 68.7483,
+              "seconds": 1.0703054,
+              "serialized_bytes": 21375
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 2,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 776883.8218799618,
+              "seconds": 0.5148775
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 795369.0432823926,
+              "seconds": 0.2514556
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4503.814731077222,
+              "seconds": 0.0888136
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 34824.867915805655,
+              "p50_ms": 0.4126,
+              "p95_ms": 0.71,
+              "seconds": 0.9188836,
+              "serialized_bytes": 148635116
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.78261222203471,
+              "p50_ms": 63.25699999999999,
+              "p95_ms": 68.1107,
+              "seconds": 1.0529327,
+              "serialized_bytes": 21371
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 2,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 794332.1225725956,
+              "seconds": 0.5035677
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 832729.2576510123,
+              "seconds": 0.2401741
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4860.397240266447,
+              "seconds": 0.0822978
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36890.516785415704,
+              "p50_ms": 0.41140000000000004,
+              "p95_ms": 0.5335,
+              "seconds": 0.8674316,
+              "serialized_bytes": 148636643
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 58.47544999599808,
+              "p50_ms": 65.5911,
+              "p95_ms": 69.3084,
+              "seconds": 1.0944764,
+              "serialized_bytes": 21321
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 3,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 781610.2734854347,
+              "seconds": 0.511764
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 830295.1450151986,
+              "seconds": 0.2408782
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 5022.8476783770175,
+              "seconds": 0.0796361
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36478.460608962305,
+              "p50_ms": 0.4124,
+              "p95_ms": 0.5365,
+              "seconds": 0.87723,
+              "serialized_bytes": 148637696
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.33662864370722,
+              "p50_ms": 62.5304,
+              "p95_ms": 65.6191,
+              "seconds": 1.0434222,
+              "serialized_bytes": 21386
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 3,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 772486.2043619979,
+              "seconds": 0.5178086
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 801437.7793762009,
+              "seconds": 0.2495515
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4364.653724740931,
+              "seconds": 0.0916453
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 37560.81918268596,
+              "p50_ms": 0.39189999999999997,
+              "p95_ms": 0.5431,
+              "seconds": 0.8519516,
+              "serialized_bytes": 148633944
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.60086706584331,
+              "p50_ms": 63.76519999999999,
+              "p95_ms": 69.1913,
+              "seconds": 1.0560905,
+              "serialized_bytes": 21424
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 3,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 766769.5863143897,
+              "seconds": 0.5216691
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 754385.9053554987,
+              "seconds": 0.2651163
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4195.603217608107,
+              "seconds": 0.0953379
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36732.16854096383,
+              "p50_ms": 0.40059999999999996,
+              "p95_ms": 0.5760000000000001,
+              "seconds": 0.871171,
+              "serialized_bytes": 148637864
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.46352331964489,
+              "p50_ms": 62.5376,
+              "p95_ms": 68.3579,
+              "seconds": 1.041268,
+              "serialized_bytes": 21380
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 4,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 766860.580145366,
+              "seconds": 0.5216072
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 795878.6221430943,
+              "seconds": 0.2512946
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4541.4498124381225,
+              "seconds": 0.0880776
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36362.96695447197,
+              "p50_ms": 0.41,
+              "p95_ms": 0.5706,
+              "seconds": 0.8800162,
+              "serialized_bytes": 148635043
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.85950642879753,
+              "p50_ms": 62.4055,
+              "p95_ms": 69.64779999999999,
+              "seconds": 1.0346025,
+              "serialized_bytes": 21376
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 4,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 779573.7641465841,
+              "seconds": 0.5131009
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 817117.6338888099,
+              "seconds": 0.2447628
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4366.292657314796,
+              "seconds": 0.0916109
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36477.67469414895,
+              "p50_ms": 0.4057,
+              "p95_ms": 0.5615,
+              "seconds": 0.8772489,
+              "serialized_bytes": 148635747
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.23000362022397,
+              "p50_ms": 62.9141,
+              "p95_ms": 66.6961,
+              "seconds": 1.0452392,
+              "serialized_bytes": 21379
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 4,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 776949.0105845707,
+              "seconds": 0.5148343
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 783716.8713082038,
+              "seconds": 0.2551942
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4453.430477496816,
+              "seconds": 0.0898184
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36719.3466893837,
+              "p50_ms": 0.4036,
+              "p95_ms": 0.5519999999999999,
+              "seconds": 0.8714752,
+              "serialized_bytes": 148634870
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.75376820500903,
+              "p50_ms": 63.66180000000001,
+              "p95_ms": 66.9065,
+              "seconds": 1.0534326,
+              "serialized_bytes": 21370
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 5,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 748289.5970535348,
+              "seconds": 0.5345524
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 786552.1604031551,
+              "seconds": 0.2542743
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4499.564104727354,
+              "seconds": 0.0888975
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 37248.79904633762,
+              "p50_ms": 0.3971,
+              "p95_ms": 0.5587,
+              "seconds": 0.8590881,
+              "serialized_bytes": 148636743
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.504610347151235,
+              "p50_ms": 63.17300000000001,
+              "p95_ms": 66.1394,
+              "seconds": 1.0405724,
+              "serialized_bytes": 21382
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 5,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 764888.1169468038,
+              "seconds": 0.5229523
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 816182.9490403932,
+              "seconds": 0.2450431
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4890.980054583338,
+              "seconds": 0.0817832
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36859.845276191976,
+              "p50_ms": 0.4018,
+              "p95_ms": 0.5471,
+              "seconds": 0.8681534,
+              "serialized_bytes": 148635651
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.09890213391482,
+              "p50_ms": 63.6273,
+              "p95_ms": 66.8444,
+              "seconds": 1.0649113,
+              "serialized_bytes": 21404
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 5,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 771687.2575334521,
+              "seconds": 0.5183447
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 804590.6725412513,
+              "seconds": 0.2485736
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4410.6587980513705,
+              "seconds": 0.0906894
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 37720.82744878602,
+              "p50_ms": 0.3947,
+              "p95_ms": 0.525,
+              "seconds": 0.8483377,
+              "serialized_bytes": 148635334
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.296164871359466,
+              "p50_ms": 63.032199999999996,
+              "p95_ms": 66.9662,
+              "seconds": 1.044111,
+              "serialized_bytes": 21375
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 6,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 748371.0768049494,
+              "seconds": 0.5344942
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 796396.4652739285,
+              "seconds": 0.2511312
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4741.2239943863915,
+              "seconds": 0.0843664
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36095.12147361943,
+              "p50_ms": 0.3952,
+              "p95_ms": 0.6057,
+              "seconds": 0.8865464,
+              "serialized_bytes": 148635933
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.87891459744151,
+              "p50_ms": 63.3147,
+              "p95_ms": 66.13080000000001,
+              "seconds": 1.0512671,
+              "serialized_bytes": 21403
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 6,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 778384.8747364681,
+              "seconds": 0.5138846
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 772035.9320963516,
+              "seconds": 0.2590553
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4241.475694223534,
+              "seconds": 0.0943068
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 35821.775027162985,
+              "p50_ms": 0.4102,
+              "p95_ms": 0.592,
+              "seconds": 0.8933114,
+              "serialized_bytes": 148635480
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.3130535299362,
+              "p50_ms": 62.698100000000004,
+              "p95_ms": 68.6749,
+              "seconds": 1.0438234,
+              "serialized_bytes": 21418
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 6,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 741564.1516024088,
+              "seconds": 0.5394004
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 805355.6148386772,
+              "seconds": 0.2483375
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4795.501819293503,
+              "seconds": 0.0834115
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36472.07031541616,
+              "p50_ms": 0.4061,
+              "p95_ms": 0.5441,
+              "seconds": 0.8773837,
+              "serialized_bytes": 148635611
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.56849986233668,
+              "p50_ms": 63.0081,
+              "p95_ms": 67.2189,
+              "seconds": 1.0394926,
+              "serialized_bytes": 21309
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 7,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 763791.9827810735,
+              "seconds": 0.5237028
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 788912.6220102677,
+              "seconds": 0.2535135
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4624.19192246155,
+              "seconds": 0.0865016
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36429.557303465954,
+              "p50_ms": 0.3986,
+              "p95_ms": 0.5519999999999999,
+              "seconds": 0.8784076,
+              "serialized_bytes": 148634533
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.24005172105119,
+              "p50_ms": 62.958,
+              "p95_ms": 68.3179,
+              "seconds": 1.0450677,
+              "serialized_bytes": 21261
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 7,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 722812.187553138,
+              "seconds": 0.5533941
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 663101.39151827,
+              "seconds": 0.301613
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 3925.4363367828105,
+              "seconds": 0.1018995
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 35046.53577588704,
+              "p50_ms": 0.3853,
+              "p95_ms": 0.8205,
+              "seconds": 0.9130717,
+              "serialized_bytes": 148634997
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 55.13540177813393,
+              "p50_ms": 63.6428,
+              "p95_ms": 114.1712,
+              "seconds": 1.1607787,
+              "serialized_bytes": 21266
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 7,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 775964.4996241422,
+              "seconds": 0.5154875
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 774309.0453234056,
+              "seconds": 0.2582948
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4626.133258081566,
+              "seconds": 0.0864653
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 31015.62906625801,
+              "p50_ms": 0.4231,
+              "p95_ms": 0.7506999999999999,
+              "seconds": 1.0317379,
+              "serialized_bytes": 148633811
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.27548155400739,
+              "p50_ms": 61.8213,
+              "p95_ms": 84.4134,
+              "seconds": 1.0617916,
+              "serialized_bytes": 21286
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 8,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 785339.2862051228,
+              "seconds": 0.509334
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 757108.5871634511,
+              "seconds": 0.2641629
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4522.97842652365,
+              "seconds": 0.0884373
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 38329.28859522798,
+              "p50_ms": 0.38,
+              "p95_ms": 0.5285,
+              "seconds": 0.8348707,
+              "serialized_bytes": 148635153
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.632524176508475,
+              "p50_ms": 63.0327,
+              "p95_ms": 68.2608,
+              "seconds": 1.0555391,
+              "serialized_bytes": 21380
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 8,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 763969.079115492,
+              "seconds": 0.5235814
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 807848.4088617739,
+              "seconds": 0.2475712
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4817.007891463178,
+              "seconds": 0.0830391
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 35960.02189515833,
+              "p50_ms": 0.4099,
+              "p95_ms": 0.6130000000000001,
+              "seconds": 0.8898771,
+              "serialized_bytes": 148635122
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.579180771746856,
+              "p50_ms": 63.0958,
+              "p95_ms": 67.2215,
+              "seconds": 1.0393123,
+              "serialized_bytes": 21411
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 8,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 795013.0421889571,
+              "seconds": 0.5031364
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 817701.2700127275,
+              "seconds": 0.2445881
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4951.530703822953,
+              "seconds": 0.0807831
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 38083.667914224156,
+              "p50_ms": 0.3892,
+              "p95_ms": 0.5088,
+              "seconds": 0.8402552,
+              "serialized_bytes": 148635957
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.60536852283321,
+              "p50_ms": 62.1313,
+              "p95_ms": 66.3168,
+              "seconds": 1.0388705,
+              "serialized_bytes": 21312
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 9,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 781449.7886276003,
+              "seconds": 0.5118691
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 832447.4704834938,
+              "seconds": 0.2402554
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 5046.891934688171,
+              "seconds": 0.0792567
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36770.01184913632,
+              "p50_ms": 0.39609999999999995,
+              "p95_ms": 0.5685,
+              "seconds": 0.8702744,
+              "serialized_bytes": 148634380
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.92398457328556,
+              "p50_ms": 63.0811,
+              "p95_ms": 66.8552,
+              "seconds": 1.0504894,
+              "serialized_bytes": 21333
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 9,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 756701.6811452075,
+              "seconds": 0.5286099
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 812853.4896613164,
+              "seconds": 0.2460468
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4495.725688801373,
+              "seconds": 0.0889734
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 37203.57470547558,
+              "p50_ms": 0.40709999999999996,
+              "p95_ms": 0.5366000000000001,
+              "seconds": 0.8601324,
+              "serialized_bytes": 148634604
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.90973541230094,
+              "p50_ms": 62.5027,
+              "p95_ms": 65.2359,
+              "seconds": 1.0337631,
+              "serialized_bytes": 21408
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 9,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 772644.2222534285,
+              "seconds": 0.5177027
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 776774.4441207884,
+              "seconds": 0.257475
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4911.904984109988,
+              "seconds": 0.0814348
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 37953.22075775503,
+              "p50_ms": 0.3902,
+              "p95_ms": 0.5002,
+              "seconds": 0.8431432,
+              "serialized_bytes": 148634263
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 63.49004163657089,
+              "p50_ms": 60.6826,
+              "p95_ms": 64.4331,
+              "seconds": 1.0080321,
+              "serialized_bytes": 21306
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 10,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 785719.0842129786,
+              "seconds": 0.5090878
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 813182.0055833076,
+              "seconds": 0.2459474
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4647.520431661697,
+              "seconds": 0.0860674
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 37291.37370116767,
+              "p50_ms": 0.37879999999999997,
+              "p95_ms": 0.6109,
+              "seconds": 0.8581073,
+              "serialized_bytes": 148634511
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.69903474308422,
+              "p50_ms": 63.0651,
+              "p95_ms": 69.59949999999999,
+              "seconds": 1.0543825,
+              "serialized_bytes": 21357
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 10,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 797463.2693402286,
+              "seconds": 0.5015905
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 848908.6854394333,
+              "seconds": 0.2355966
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4514.071489350176,
+              "seconds": 0.0886118
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36956.57521569647,
+              "p50_ms": 0.4056,
+              "p95_ms": 0.5202,
+              "seconds": 0.8658811,
+              "serialized_bytes": 148635638
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.65955735181835,
+              "p50_ms": 62.52530000000001,
+              "p95_ms": 66.3336,
+              "seconds": 1.0379575,
+              "serialized_bytes": 21425
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 10,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 778801.9456030205,
+              "seconds": 0.5136094
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 766292.6264641458,
+              "seconds": 0.2609969
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4277.9193056081385,
+              "seconds": 0.0935034
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36173.36037744188,
+              "p50_ms": 0.4088,
+              "p95_ms": 0.5626,
+              "seconds": 0.8846289,
+              "serialized_bytes": 148637638
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 60.22943839907142,
+              "p50_ms": 63.614000000000004,
+              "p95_ms": 70.8516,
+              "seconds": 1.0626033,
+              "serialized_bytes": 21377
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 11,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 766027.3019790697,
+              "seconds": 0.5221746
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 769678.0706017998,
+              "seconds": 0.2598489
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4154.868571119924,
+              "seconds": 0.0962726
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 36450.296944622205,
+              "p50_ms": 0.4034,
+              "p95_ms": 0.5529000000000001,
+              "seconds": 0.8779078,
+              "serialized_bytes": 148634933
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.22869731641316,
+              "p50_ms": 62.3097,
+              "p95_ms": 67.9626,
+              "seconds": 1.0452615,
+              "serialized_bytes": 21317
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 11,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 769109.4865809622,
+              "seconds": 0.520082
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 821495.5819967601,
+              "seconds": 0.2434584
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4793.065392989423,
+              "seconds": 0.0834539
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 38039.975973000175,
+              "p50_ms": 0.3853,
+              "p95_ms": 0.5127,
+              "seconds": 0.8412203,
+              "serialized_bytes": 148634099
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.95452789342892,
+              "p50_ms": 62.3238,
+              "p95_ms": 69.8468,
+              "seconds": 1.0330157,
+              "serialized_bytes": 21387
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 11,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 400000,
+              "operations_per_second": 764252.9837869462,
+              "seconds": 0.5233869
+            },
+            {
+              "name": "date_conversion",
+              "operations": 200000,
+              "operations_per_second": 831550.3507895155,
+              "seconds": 0.2405146
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 400,
+              "operations_per_second": 4455.275714737606,
+              "seconds": 0.0897812
+            },
+            {
+              "name": "http_16_users",
+              "operations": 32000,
+              "operations_per_second": 37635.38742573479,
+              "p50_ms": 0.3967,
+              "p95_ms": 0.5027,
+              "seconds": 0.8502636,
+              "serialized_bytes": 148634578
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 64,
+              "operations_per_second": 61.00833431041994,
+              "p50_ms": 63.137100000000004,
+              "p95_ms": 66.9873,
+              "seconds": 1.049037,
+              "serialized_bytes": 21329
+            }
+          ]
+        }
+      ]
+    },
+    "summary": [
+      {
+        "name": "native_expression",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 0.51181655,
+            "p25_seconds": 0.503459875,
+            "p75_seconds": 0.516636125,
+            "median_operations_per_second": 781530.0310565175,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ]
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 0.5177602,
+            "p25_seconds": 0.5138158,
+            "p75_seconds": 0.521795475,
+            "median_operations_per_second": 772558.4255671052,
+            "elapsed_change_pct": 1.711862655824925,
+            "elapsed_change_95pct_interval": [
+              0.7710129998196535,
+              2.4033136687590995
+            ]
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 0.52208115,
+            "p25_seconds": 0.5170758249999999,
+            "p75_seconds": 0.5236117499999999,
+            "median_operations_per_second": 766165.0485699209,
+            "elapsed_change_pct": 1.6257586829652837,
+            "elapsed_change_95pct_interval": [
+              1.049522454516305,
+              2.6830756845610093
+            ]
+          }
+        ]
+      },
+      {
+        "name": "date_conversion",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 0.24467545000000002,
+            "p25_seconds": 0.2407225,
+            "p75_seconds": 0.246179275,
+            "median_operations_per_second": 817409.4519507687,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ]
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 0.2591816,
+            "p25_seconds": 0.25644055,
+            "p75_seconds": 0.2617884,
+            "median_operations_per_second": 771659.8998265143,
+            "elapsed_change_pct": 6.234891490324346,
+            "elapsed_change_95pct_interval": [
+              4.352581305282355,
+              9.032778893659499
+            ]
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 0.24845555,
+            "p25_seconds": 0.2460753,
+            "p75_seconds": 0.25133485,
+            "median_operations_per_second": 804973.1436899642,
+            "elapsed_change_pct": 1.8779145636882655,
+            "elapsed_change_95pct_interval": [
+              -0.7276271504545351,
+              3.1346619605738146
+            ]
+          }
+        ]
+      },
+      {
+        "name": "parse_24_http_nodes",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 0.08287585,
+            "p25_seconds": 0.08049635,
+            "p75_seconds": 0.084891125,
+            "median_operations_per_second": 4826.731316627935,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ]
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 0.090548,
+            "p25_seconds": 0.0881281,
+            "p75_seconds": 0.094564575,
+            "median_operations_per_second": 4417.833322484177,
+            "elapsed_change_pct": 9.123662221626905,
+            "elapsed_change_95pct_interval": [
+              5.738762705894951,
+              13.571316293363989
+            ]
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 0.08844560000000001,
+            "p25_seconds": 0.0859212,
+            "p75_seconds": 0.09000825000000001,
+            "median_operations_per_second": 4522.632271757672,
+            "elapsed_change_pct": 7.749567374898758,
+            "elapsed_change_95pct_interval": [
+              -0.5449332693713949,
+              10.090568400573252
+            ]
+          }
+        ]
+      },
+      {
+        "name": "http_16_users",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 0.8692139,
+            "p25_seconds": 0.8597159,
+            "p75_seconds": 0.879573275,
+            "median_operations_per_second": 36814.92856266415,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ],
+            "median_p95_ms": 0.54395
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 0.8746915,
+            "p25_seconds": 0.865817775,
+            "p75_seconds": 0.885363425,
+            "median_operations_per_second": 36584.82181700296,
+            "elapsed_change_pct": -0.649488531665221,
+            "elapsed_change_95pct_interval": [
+              -2.0808751575992934,
+              2.2432184257967114
+            ],
+            "median_p95_ms": 0.55775
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 0.867641,
+            "p25_seconds": 0.85155665,
+            "p75_seconds": 0.87880975,
+            "median_operations_per_second": 36884.375838180735,
+            "elapsed_change_pct": -0.9656590530283005,
+            "elapsed_change_95pct_interval": [
+              -2.582063679214097,
+              1.5611495007419318
+            ],
+            "median_p95_ms": 0.5545
+          }
+        ]
+      },
+      {
+        "name": "javascript_4_users",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 1.0478643,
+            "p25_seconds": 1.038925475,
+            "p75_seconds": 1.053898225,
+            "median_operations_per_second": 61.07699409675476,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ],
+            "median_p95_ms": 66.84979999999999
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 1.0523083,
+            "p25_seconds": 1.0431845499999999,
+            "p75_seconds": 1.06345175,
+            "median_operations_per_second": 60.818747753397226,
+            "elapsed_change_pct": 0.9810083926198976,
+            "elapsed_change_95pct_interval": [
+              -1.4582613112830045,
+              1.5384757169360608
+            ],
+            "median_p95_ms": 68.1117
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 1.0445893499999999,
+            "p25_seconds": 1.03813485,
+            "p75_seconds": 1.0532951499999998,
+            "median_operations_per_second": 61.26810829620533,
+            "elapsed_change_pct": -1.0688312183084414,
+            "elapsed_change_95pct_interval": [
+              -1.7727406540814172,
+              1.3825178831141205
+            ],
+            "median_p95_ms": 67.6661
+          }
+        ]
+      }
+    ]
+  },
+  "confirmation": {
+    "raw": {
+      "timestamp": "2026-11-13T02:23:42.342Z",
+      "worker_sha256": "6af2d5f68292686b0e9d3b350cf8f3fb4648b817ab59c28cc326013d1edd751a",
+      "repetitions": 6,
+      "scale": 8,
+      "samples": [
+        {
+          "variant": "fat-1",
+          "round": 0,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 788390.6714265096,
+              "seconds": 2.0294507
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 823795.4977104664,
+              "seconds": 0.9711148
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4775.65894392869,
+              "seconds": 0.3350323
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 36988.82847797646,
+              "p50_ms": 0.38699999999999996,
+              "p95_ms": 0.5539,
+              "seconds": 3.4605043,
+              "serialized_bytes": 594606645
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 54.1221776024332,
+              "p50_ms": 70.52980000000001,
+              "p95_ms": 93.6563,
+              "seconds": 4.7300388,
+              "serialized_bytes": 85142
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 0,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 741988.5525078634,
+              "seconds": 2.1563675
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 757483.3675589568,
+              "seconds": 1.0561288
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4545.6043437795115,
+              "seconds": 0.3519884
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 38806.675330256934,
+              "p50_ms": 0.3675,
+              "p95_ms": 0.5950000000000001,
+              "seconds": 3.2984016,
+              "serialized_bytes": 594591807
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 52.871358820770425,
+              "p50_ms": 72.7214,
+              "p95_ms": 91.8944,
+              "seconds": 4.841941,
+              "serialized_bytes": 85119
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 0,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 747259.681986829,
+              "seconds": 2.1411566
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 788016.7087122833,
+              "seconds": 1.0152069
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4719.113915575642,
+              "seconds": 0.3390467
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 40186.61660084015,
+              "p50_ms": 0.3642,
+              "p95_ms": 0.5220999999999999,
+              "seconds": 3.18514,
+              "serialized_bytes": 594590408
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 56.260136851464296,
+              "p50_ms": 70.13560000000001,
+              "p95_ms": 75.4589,
+              "seconds": 4.5502911,
+              "serialized_bytes": 85054
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 1,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 735135.6715854901,
+              "seconds": 2.176469
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 798788.9560637119,
+              "seconds": 1.0015161
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4801.5331295282585,
+              "seconds": 0.3332269
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 37275.806047807324,
+              "p50_ms": 0.3815,
+              "p95_ms": 0.5559999999999999,
+              "seconds": 3.4338627,
+              "serialized_bytes": 594607626
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 57.74944676142794,
+              "p50_ms": 68.50439999999999,
+              "p95_ms": 73.72040000000001,
+              "seconds": 4.4329429000000005,
+              "serialized_bytes": 85254
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 1,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 776333.8507274976,
+              "seconds": 2.060969
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 777920.1371628786,
+              "seconds": 1.0283832
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4684.778802312875,
+              "seconds": 0.3415316
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 37029.25296519699,
+              "p50_ms": 0.3866,
+              "p95_ms": 0.5577,
+              "seconds": 3.4567265,
+              "serialized_bytes": 594605034
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 57.30720730584514,
+              "p50_ms": 68.8403,
+              "p95_ms": 74.40950000000001,
+              "seconds": 4.4671519,
+              "serialized_bytes": 85065
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 1,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 759938.3670985824,
+              "seconds": 2.1054339
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 813053.8230451365,
+              "seconds": 0.9839447
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4761.0984925469465,
+              "seconds": 0.3360569
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 35376.39377463911,
+              "p50_ms": 0.4285,
+              "p95_ms": 0.5821,
+              "seconds": 3.618232,
+              "serialized_bytes": 594607253
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 54.12795196617883,
+              "p50_ms": 72.51259999999999,
+              "p95_ms": 87.75370000000001,
+              "seconds": 4.7295342,
+              "serialized_bytes": 85156
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 2,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 740058.824500739,
+              "seconds": 2.1619903
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 749060.2337124109,
+              "seconds": 1.0680049
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4886.063115720298,
+              "seconds": 0.327462
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 40557.35180264438,
+              "p50_ms": 0.36719999999999997,
+              "p95_ms": 0.49779999999999996,
+              "seconds": 3.1560246,
+              "serialized_bytes": 594592004
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 62.09517764484343,
+              "p50_ms": 63.5619,
+              "p95_ms": 69.3156,
+              "seconds": 4.1227034,
+              "serialized_bytes": 85186
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 2,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 768208.0553240394,
+              "seconds": 2.0827691
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 800448.4111999542,
+              "seconds": 0.9994398
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4965.509878726732,
+              "seconds": 0.3222227
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 41046.732731382996,
+              "p50_ms": 0.3681,
+              "p95_ms": 0.4778,
+              "seconds": 3.1183968,
+              "serialized_bytes": 594592477
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 59.40730446224972,
+              "p50_ms": 64.5661,
+              "p95_ms": 88.99,
+              "seconds": 4.3092344,
+              "serialized_bytes": 85247
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 2,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 759115.62649955,
+              "seconds": 2.1077158
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 812062.2920803321,
+              "seconds": 0.9851461
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4831.260672179336,
+              "seconds": 0.3311765
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 36751.06145966143,
+              "p50_ms": 0.39790000000000003,
+              "p95_ms": 0.5558,
+              "seconds": 3.4828926,
+              "serialized_bytes": 594607344
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 58.12471989163917,
+              "p50_ms": 68.0032,
+              "p95_ms": 73.68260000000001,
+              "seconds": 4.4043223000000005,
+              "serialized_bytes": 85073
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 3,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 777708.9559359342,
+              "seconds": 2.0573249
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 813442.9583293509,
+              "seconds": 0.983474
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 5130.683314023793,
+              "seconds": 0.3118493
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 38788.09741170056,
+              "p50_ms": 0.3774,
+              "p95_ms": 0.5273,
+              "seconds": 3.2999814,
+              "serialized_bytes": 594600338
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 58.83443243790468,
+              "p50_ms": 67.4176,
+              "p95_ms": 71.43239999999999,
+              "seconds": 4.3511935,
+              "serialized_bytes": 85217
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 3,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 766318.5744367139,
+              "seconds": 2.0879045
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 805573.1159306313,
+              "seconds": 0.9930818
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4347.782372840274,
+              "seconds": 0.3680037
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 38318.438437417186,
+              "p50_ms": 0.3798,
+              "p95_ms": 0.5580999999999999,
+              "seconds": 3.3404284,
+              "serialized_bytes": 594594157
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 55.706275605710545,
+              "p50_ms": 68.7244,
+              "p95_ms": 94.23339999999999,
+              "seconds": 4.5955325,
+              "serialized_bytes": 85175
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 3,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 740005.2919628441,
+              "seconds": 2.1621467
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 759850.0549893987,
+              "seconds": 1.0528393
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4259.384822374335,
+              "seconds": 0.3756411
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 36222.11901433728,
+              "p50_ms": 0.3726,
+              "p95_ms": 0.748,
+              "seconds": 3.5337524,
+              "serialized_bytes": 594593133
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 53.14122558861276,
+              "p50_ms": 72.7564,
+              "p95_ms": 95.7523,
+              "seconds": 4.8173522,
+              "serialized_bytes": 85199
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 4,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 742177.575911662,
+              "seconds": 2.1558183
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 778491.2974890639,
+              "seconds": 1.0276287
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4595.794158975414,
+              "seconds": 0.3481444
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 37696.633222390374,
+              "p50_ms": 0.3791,
+              "p95_ms": 0.5522,
+              "seconds": 3.3955287,
+              "serialized_bytes": 594600100
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 52.63157786530473,
+              "p50_ms": 72.9722,
+              "p95_ms": 92.3552,
+              "seconds": 4.8640001,
+              "serialized_bytes": 85107
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 4,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 751560.8156670744,
+              "seconds": 2.1289029
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 800506.4804501808,
+              "seconds": 0.9993673
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4642.967413333209,
+              "seconds": 0.3446072
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 36794.66495755448,
+              "p50_ms": 0.3945,
+              "p95_ms": 0.5551,
+              "seconds": 3.4787652,
+              "serialized_bytes": 594603927
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 55.320893162735224,
+              "p50_ms": 70.25829999999999,
+              "p95_ms": 78.0595,
+              "seconds": 4.6275464,
+              "serialized_bytes": 85123
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 4,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 734097.0603863195,
+              "seconds": 2.1795483
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 750596.6304966661,
+              "seconds": 1.0658188
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4606.985283849321,
+              "seconds": 0.3472987
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 37133.98294981568,
+              "p50_ms": 0.3831,
+              "p95_ms": 0.5609999999999999,
+              "seconds": 3.4469774,
+              "serialized_bytes": 594605177
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 57.43721517816104,
+              "p50_ms": 69.0723,
+              "p95_ms": 73.8266,
+              "seconds": 4.4570406,
+              "serialized_bytes": 85164
+            }
+          ]
+        },
+        {
+          "variant": "thin-16",
+          "round": 5,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 743372.0368435625,
+              "seconds": 2.1523543
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 764847.7503628724,
+              "seconds": 1.0459598
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4549.550433330461,
+              "seconds": 0.3516831
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 37822.34872353267,
+              "p50_ms": 0.3789,
+              "p95_ms": 0.5573,
+              "seconds": 3.3842425,
+              "serialized_bytes": 594601399
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 54.31707554658626,
+              "p50_ms": 72.2213,
+              "p95_ms": 86.40910000000001,
+              "seconds": 4.7130667,
+              "serialized_bytes": 85123
+            }
+          ]
+        },
+        {
+          "variant": "fat-1",
+          "round": 5,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 770493.1555889093,
+              "seconds": 2.0765921
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 804940.9691509393,
+              "seconds": 0.9938617
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 5020.031494422588,
+              "seconds": 0.3187231
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 37317.70265808457,
+              "p50_ms": 0.3816,
+              "p95_ms": 0.5867,
+              "seconds": 3.4300075,
+              "serialized_bytes": 594599962
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 56.96894925223803,
+              "p50_ms": 69.2415,
+              "p95_ms": 75.4838,
+              "seconds": 4.493676,
+              "serialized_bytes": 85229
+            }
+          ]
+        },
+        {
+          "variant": "thin-8",
+          "round": 5,
+          "cases": [
+            {
+              "name": "native_expression",
+              "operations": 1600000,
+              "operations_per_second": 752867.2714763152,
+              "seconds": 2.1252086
+            },
+            {
+              "name": "date_conversion",
+              "operations": 800000,
+              "operations_per_second": 786176.5786008042,
+              "seconds": 1.0175831
+            },
+            {
+              "name": "parse_24_http_nodes",
+              "operations": 1600,
+              "operations_per_second": 4362.642474359932,
+              "seconds": 0.3667502
+            },
+            {
+              "name": "http_16_users",
+              "operations": 128000,
+              "operations_per_second": 35461.39078743542,
+              "p50_ms": 0.4285,
+              "p95_ms": 0.5730000000000001,
+              "seconds": 3.6095595,
+              "serialized_bytes": 594611324
+            },
+            {
+              "name": "javascript_4_users",
+              "operations": 256,
+              "operations_per_second": 56.352819543985504,
+              "p50_ms": 69.4054,
+              "p95_ms": 80.4179,
+              "seconds": 4.5428073,
+              "serialized_bytes": 85091
+            }
+          ]
+        }
+      ]
+    },
+    "summary": [
+      {
+        "name": "native_expression",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 2.0910130000000002,
+            "p25_seconds": 2.0621416999999997,
+            "p75_seconds": 2.107145325,
+            "median_operations_per_second": 765215.7613437459,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ]
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 2.1591788999999997,
+            "p25_seconds": 2.1533575999999996,
+            "p75_seconds": 2.1621076,
+            "median_operations_per_second": 741023.6885043012,
+            "elapsed_change_pct": 3.1117149257127386,
+            "elapsed_change_95pct_interval": [
+              0.1335160823307424,
+              5.674402306394688
+            ]
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 2.1331826,
+            "p25_seconds": 2.097230525,
+            "p75_seconds": 2.152152875,
+            "median_operations_per_second": 750063.4767315721,
+            "elapsed_change_pct": 1.9137721652383366,
+            "elapsed_change_95pct_interval": [
+              0.04034781807529253,
+              4.439068356374598
+            ]
+          }
+        ]
+      },
+      {
+        "name": "date_conversion",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 0.9845454,
+            "p25_seconds": 0.983591675,
+            "p75_seconds": 0.9916828,
+            "median_operations_per_second": 812558.0575627342,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ]
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 1.0544840500000001,
+            "p25_seconds": 1.0476796750000001,
+            "p75_seconds": 1.0633963,
+            "median_operations_per_second": 758666.7112741778,
+            "elapsed_change_pct": 6.851223201439893,
+            "elapsed_change_95pct_interval": [
+              4.8791742137696215,
+              8.582541093086471
+            ]
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 1.0083615,
+            "p25_seconds": 0.9999588749999999,
+            "p75_seconds": 1.0169890499999998,
+            "median_operations_per_second": 793402.8323879975,
+            "elapsed_change_pct": 2.086301290742032,
+            "elapsed_change_95pct_interval": [
+              1.2139232524590815,
+              3.6841442069496466
+            ]
+          }
+        ]
+      },
+      {
+        "name": "parse_24_http_nodes",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 0.33310439999999997,
+            "p25_seconds": 0.32183645,
+            "p75_seconds": 0.33580075,
+            "median_operations_per_second": 4803.459808054013,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ]
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 0.34949090000000005,
+            "p25_seconds": 0.342973375,
+            "p75_seconds": 0.351912075,
+            "median_operations_per_second": 4578.26785858989,
+            "elapsed_change_pct": 3.3450667667592526,
+            "elapsed_change_95pct_interval": [
+              -0.17028659293198967,
+              15.39861755899099
+            ]
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 0.34359554999999997,
+            "p25_seconds": 0.33468185,
+            "p75_seconds": 0.36209875,
+            "median_operations_per_second": 4657.454037275527,
+            "elapsed_change_pct": 1.1123284249671794,
+            "elapsed_change_95pct_interval": [
+              -1.772876579389604,
+              16.537749927337543
+            ]
+          }
+        ]
+      },
+      {
+        "name": "http_16_users",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 3.46963475,
+            "p25_seconds": 3.4376317,
+            "p75_seconds": 3.48186075,
+            "median_operations_per_second": 36891.74671776547,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ],
+            "median_p95_ms": 0.55545
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 3.4156099500000003,
+            "p25_seconds": 3.3198618250000003,
+            "p75_seconds": 3.454289225,
+            "median_operations_per_second": 37478.165836674176,
+            "elapsed_change_pct": -2.8989557917645348,
+            "elapsed_change_95pct_interval": [
+              -7.03466207941934,
+              3.085121433317539
+            ],
+            "median_p95_ms": 0.55935
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 3.36797855,
+            "p25_seconds": 3.2239621,
+            "p75_seconds": 3.4242792,
+            "median_operations_per_second": 38007.535829903776,
+            "elapsed_change_pct": -3.7441328462867407,
+            "elapsed_change_95pct_interval": [
+              -9.211332191111921,
+              3.230207157685716
+            ],
+            "median_p95_ms": 0.5541
+          }
+        ]
+      },
+      {
+        "name": "javascript_4_users",
+        "variants": [
+          {
+            "variant": "fat-1",
+            "median_seconds": 4.5606112,
+            "p25_seconds": 4.4266607250000005,
+            "p75_seconds": 4.70403725,
+            "median_operations_per_second": 56.14492120748663,
+            "elapsed_change_pct": 0,
+            "elapsed_change_95pct_interval": [
+              0,
+              0
+            ],
+            "median_p95_ms": 76.77165
+          },
+          {
+            "variant": "thin-16",
+            "median_seconds": 4.5901093,
+            "p25_seconds": 4.4595684250000005,
+            "p75_seconds": 4.791280825,
+            "median_operations_per_second": 55.8121414262157,
+            "elapsed_change_pct": -0.6594028130710305,
+            "elapsed_change_95pct_interval": [
+              -5.970944572239667,
+              7.797781288125871
+            ],
+            "median_p95_ms": 80.4093
+          },
+          {
+            "variant": "thin-8",
+            "median_seconds": 4.546549199999999,
+            "p25_seconds": 4.460409,
+            "p75_seconds": 4.58422215,
+            "median_operations_per_second": 56.3064781977249,
+            "elapsed_change_pct": -0.532812307849162,
+            "elapsed_change_95pct_interval": [
+              -5.035589176370192,
+              5.3625734888825605
+            ],
+            "median_p95_ms": 84.70394999999999
+          }
+        ]
+      }
+    ]
+  },
+  "validation": {
+    "final_build_seconds": 40.2059207,
+    "final_cargo_seconds": 34.91,
+    "executable_bytes": 27409408,
+    "executable_sha256": "72e59c0d29c6a0da866defa4c211697fe625e8d8b70d697203878dcbc5a305e9",
+    "worker_sha256": "6af2d5f68292686b0e9d3b350cf8f3fb4648b817ab59c28cc326013d1edd751a",
+    "no_installer": true,
+    "release_profile_overrides": false,
+    "correctness_checked_samples": 54
+  }
+}

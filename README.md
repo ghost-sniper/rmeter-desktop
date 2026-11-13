@@ -39,6 +39,35 @@ GitHub Actions 在推送 `main` 时仅构建可执行文件并预热缓存；版
 
 开发版显式定位上述文件，发行版定位宿主程序旁的 worker，均调用库的 `set_worker_executable`；不从当前目录或 PATH 搜索。worker 缺失时 JavaScript 和提取器的校验与执行报错，未使用这些组件的 HTTP/JDBC 仍可运行。交叉构建使用 `TAURI_ENV_TARGET_TRIPLE`；其他平台需要对应工具链及平台验证。分发无安装包版本时，须将 `rmeter-desktop.exe` 和同版本的 `rmeter-js-worker.exe` 放在同一目录。
 
+### 发布配置基准
+
+以下工具比较 Fat LTO / 1、Thin LTO / 8 和 Thin LTO / 16，三组均为 O3。执行前准备固定版本 worker，并选择一个不存在的新结果目录：
+
+```powershell
+bun run prepare:worker
+bun scripts/benchmark-build-profiles.ts build .cache/profile-benchmark
+bun scripts/benchmark-build-profiles.ts run .cache/profile-benchmark
+bun scripts/summarize-build-profiles.ts .cache/profile-benchmark
+```
+
+构建阶段串行执行，每组使用独立空 Cargo 编译目录，记录一次冷构建、两次完整 Tauri 重复构建以及主程序大小。只生成可执行文件，worker 固定复用同一 O3 成品；核心依赖需已下载，测量使用离线模式。工具不会修改正式版 profile，也不会清理已有结果目录。
+
+运行阶段使用相同依赖及 profile 编译的 `build-profile-bench` 示例程序，覆盖原生表达式、日期转换、24 节点脚本解析、本机 HTTP 请求及结果序列化、JavaScript worker 调用；每次执行校验结果和成功采样数。默认预热一轮后，按六种顺序交错测量 12 轮。`BENCH_SCALE` 可增加每轮工作量，`BENCH_REPETITIONS` 可调整轮数。此基准不覆盖 WebView 渲染、完整 Tauri IPC、远程网络或 JDBC，也不衡量 worker 自身编译参数的变化。运行测试时避免其他编译或负载，保持同一电源模式。
+
+结果目录保存日志、各组 Cargo timings、`builds.json`、`runtime.json` 和 `summary.json`。汇总给出运行耗时/吞吐中位数及按轮配对的耗时变化 bootstrap 区间；冷构建只有一次观测，应结合重复构建和实际 CI 验证解读。重复执行运行阶段会覆盖 `runtime.json`，复测前请保留旧文件。
+
+2026-11-13 在 Windows 11、Core Ultra 9 185H（22 逻辑处理器）、32 GB 内存、性能电源模式、Rust 1.99.1 / LLVM 23.1.1 上测得：
+
+| 发布参数（均为 O3） | 空编译目录构建 | 重复构建两次 | 主程序大小 |
+| --- | ---: | ---: | ---: |
+| Fat LTO / 1 | 225.8 秒 | 129.8 / 122.1 秒 | 25.05 MiB |
+| Thin LTO / 8 | 133.1 秒 | 38.1 / 37.7 秒 | 26.14 MiB |
+| Thin LTO / 16 | 133.6 秒 | 44.3 / 43.2 秒 | 26.15 MiB |
+
+运行测试先进行 12 轮（`BENCH_SCALE=2`），再以四倍工作量复测 6 轮（`BENCH_SCALE=8`），两阶段均交错执行三组并校验全部结果。复测中 Thin / 8 相对基线的按轮配对耗时中位变化：原生表达式 +1.9%、日期转换 +2.1%、解析 +1.1%、HTTP -3.7%、JavaScript -0.5%。HTTP 和 JavaScript 吞吐差异的 bootstrap 区间均包含零，不据此宣称吞吐提升。解析区间较宽（约 -1.8% 至 +16.5%）；24 个 HTTP 节点的解析中位耗时约从 0.208 ms 到 0.215 ms。JavaScript p95 延迟首轮约 +1.2%、复测约 +10.3%，说明该进程启动密集场景的尾延迟尚不能判定等效。
+
+正式配置选择 **Thin LTO / 8 / O3**：以约 2% 的 CPU 微基准耗时增加和约 4.3% 的体积增加，换取本机约 41% 的冷构建提速及约 70% 的重复构建提速。Thin / 16 没有更好的构建收益，日期转换却在两阶段均慢约 6–7%，因此不采用。这是本机 Windows 引擎基准支持的取舍，不是全平台或 GUI、JDBC、尾延迟无回退的保证；worker 参数保持不变。两阶段原始测量和统计见 [基准数据](benchmarks/build-profiles-2026-11-13-windows.json)。
+
 ## 使用
 
 - “视图 → 外观”提供 Light、Dark、Cyberpunk 2077、EVA、Death Stranding 和 Black Myth: Wukong 六种外观。主题、界面字体/字号和代码字体/字号在“保存”后立即生效并在本机记忆；取消或 Esc 丢弃草稿。字号为 10–32 整数像素，默认界面 13、代码 12。本机字体离线扫描，等宽字体带标记；不可用字体使用后备字体，读取或存储失败时显示提示。设置不会改动脚本或丢失输入，运行期间也可调整。作品背景内置于应用，无需联网；图片来源和版权说明见 [public/themes/SOURCES.md](public/themes/SOURCES.md)。
