@@ -107,6 +107,7 @@ jobs:
           '
 
       - name: Cache Cargo dependencies and desktop build
+        id: desktop-cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
@@ -182,14 +183,38 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check cached Windows Cargo dependencies offline
+        if: runner.os == 'Windows' && steps.desktop-cache.outputs.cache-hit == 'true' && steps.worker-binary.outputs.cache-hit == 'true'
+        run: |
+          # An exact build cache can omit source trees; fetch unpacks cached archives.
+          # Verify completeness before disabling network access for the actual build.
+          started=$SECONDS
+          if cargo fetch --manifest-path src-tauri/Cargo.toml --target "$TARGET" --locked --offline; then
+            echo 'CARGO_NET_OFFLINE=true' >> "$GITHUB_ENV"
+            result='complete; build will use offline dependencies'
+          else
+            result='incomplete; build will fetch missing dependencies online'
+          fi
+          printf 'Cargo cache preparation: %ss (%s).\n' "$((SECONDS - started))" "$result"
+          printf 'Windows Cargo cache preparation: **%ss** (%s).\n' "$((SECONDS - started))" "$result" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build desktop app and requested packages
         if: env.BUILD_PACKAGES == 'true'
         # Tauri's beforeBuildCommand also builds the worker from the pinned rmeter revision.
-        run: bun run tauri build --target "$TARGET" --bundles "$BUNDLES" -- --locked
+        run: bun run tauri build --target "$TARGET" --bundles "$BUNDLES" -- --locked --timings
 
       - name: Build executables and warm main branch caches
         if: env.BUILD_PACKAGES != 'true'
-        run: bun run tauri build --target "$TARGET" --no-bundle -- --locked
+        run: bun run tauri build --target "$TARGET" --no-bundle -- --locked --timings
+
+      - name: Upload Cargo build timings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cargo-timings-${{ matrix.platform }}-${{ github.run_attempt }}
+          path: src-tauri/target/cargo-timings/cargo-timing.html
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Stage Windows portable binaries and verify installer
         if: env.BUILD_PACKAGES == 'true' && runner.os == 'Windows'
