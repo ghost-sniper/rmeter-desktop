@@ -117,23 +117,15 @@ jobs:
           # Toolchains come from rust-toolchain; the worker has its own exact cache.
           cache-bin: false
 
-      - name: Cache unpacked Windows Cargo sources and index
+      - name: Cache complete Windows Cargo registry index
         if: runner.os == 'Windows'
-        id: cargo-sources
+        id: cargo-index
         uses: actions/cache@v6
         with:
-          # rust-cache removes most unpacked sources and registry config.json.
-          # Cache one file so Windows' native tar handles the many small source files.
-          path: ${{ runner.temp }}/cargo-sources.tar
-          key: cargo-sources-native-v1-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-
-      - name: Restore Windows Cargo sources with native tar
-        if: runner.os == 'Windows' && steps.cargo-sources.outputs.cache-hit == 'true'
-        shell: pwsh
-        run: |
-          $cargoRoot = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
-          & "$env:WINDIR/System32/tar.exe" -xf "$env:RUNNER_TEMP/cargo-sources.tar" -C $cargoRoot
-          if ($LASTEXITCODE -ne 0) { throw 'Could not restore cached Cargo sources.' }
+          # rust-cache prunes registry metadata (including config.json), preventing
+          # offline resolution. Save this small index before its post-job cleanup.
+          path: ~/.cargo/registry/index
+          key: cargo-index-v1-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
 
       - name: Cache matching worker executable
         id: worker-binary
@@ -202,7 +194,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Check cached Windows Cargo dependencies offline
-        if: runner.os == 'Windows' && steps.desktop-cache.outputs.cache-hit == 'true' && steps.worker-binary.outputs.cache-hit == 'true'
+        if: runner.os == 'Windows' && steps.desktop-cache.outputs.cache-hit == 'true' && steps.cargo-index.outputs.cache-hit == 'true' && steps.worker-binary.outputs.cache-hit == 'true'
         run: |
           # An exact build cache can omit source trees; fetch unpacks cached archives.
           # Verify completeness before disabling network access for the actual build.
@@ -233,15 +225,6 @@ jobs:
           path: src-tauri/target/cargo-timings/cargo-timing.html
           retention-days: 7
           if-no-files-found: warn
-
-      - name: Archive Windows Cargo sources with native tar
-        if: runner.os == 'Windows' && steps.cargo-sources.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          # This runs before rust-cache's post-job source/index cleanup.
-          $cargoRoot = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
-          & "$env:WINDIR/System32/tar.exe" -cf "$env:RUNNER_TEMP/cargo-sources.tar" -C $cargoRoot registry/index registry/src
-          if ($LASTEXITCODE -ne 0) { throw 'Could not archive Cargo sources.' }
 
       - name: Stage Windows portable binaries and verify installer
         if: env.BUILD_PACKAGES == 'true' && runner.os == 'Windows'
